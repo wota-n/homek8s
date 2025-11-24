@@ -1,7 +1,0 @@
----
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: test2
-  annotations:
-    kustomize.toolkit.fluxcd.io/prune: enable
