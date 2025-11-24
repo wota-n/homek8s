@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: myapp-config
-  namespace: myapp
+  namespace: dummy
 data:
   LOG_LEVEL: "info"
   MODE: "production"
