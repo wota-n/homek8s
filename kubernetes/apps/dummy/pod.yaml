@@ -6,6 +6,7 @@ metadata:
 spec:
   containers:
     - name: test
+      image: busybox
       volumeMounts:
         - mountPath: /test
           name: u-local-hostpath
