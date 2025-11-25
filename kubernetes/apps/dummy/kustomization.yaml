@@ -8,3 +8,4 @@ components:
 resources:
   - ./pod.yaml
   - ./namespace.yaml
+  - ./ks.yaml
