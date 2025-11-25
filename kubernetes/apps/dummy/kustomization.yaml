@@ -6,6 +6,5 @@ components:
   - ../../components/sops
 
 resources:
-  - ./pod.yaml
   - ./namespace.yaml
   - ./ks.yaml
