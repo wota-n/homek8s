@@ -1,9 +1,0 @@
-- op: add
-  path: /machine/disks/-
-  value:
-    RawVolumeConfig:
-      metadata:
-        name: dedicated-storage-raw
-      provisioning:
-        diskSelector:
-          device: /dev/nvme0n1
