@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod
+  namespace: dummy
+spec:
+  containers:
+    - name: test
+      volumeMounts:
+        - mountPath: /test
+          name: u-local-hostpath
+  volumes:
+    - name: u-local-hostpath
+      hostPath:
+        path: /var/mnt/local-hostpath
