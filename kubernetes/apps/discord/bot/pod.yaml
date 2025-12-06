@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: test-pod
+  name: yt-cipher
   namespace: discord
 spec:
   containers:
-    - name: test
-      image: busybox
-      command: ["sleep", "3600"]
+    - name: cipher
+      image: ghcr.io/kikkia/yt-cipher:master
+      # command: ["sleep", "3600"]
       volumeMounts:
         - mountPath: /test
           name: u-local-hostpath
