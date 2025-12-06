@@ -1,17 +1,17 @@
-apiVersion: v1
-kind: Pod
-metadata:
-  name: yt-cipher
-  namespace: discord
-spec:
-  containers:
-    - name: cipher
-      image: ghcr.io/kikkia/yt-cipher:master
-      # command: ["sleep", "3600"]
-      volumeMounts:
-        - mountPath: /test
-          name: u-local-hostpath
-  volumes:
-    - name: u-local-hostpath
-      hostPath:
-        path: /var/mnt/local-hostpath
+# apiVersion: v1
+# kind: Pod
+# metadata:
+#   name: yt-cipher
+#   namespace: discord
+# spec:
+#   containers:
+#     - name: cipher
+#       image: ghcr.io/kikkia/yt-cipher:master
+#       # command: ["sleep", "3600"]
+#       volumeMounts:
+#         - mountPath: /test
+#           name: u-local-hostpath
+#   volumes:
+#     - name: u-local-hostpath
+#       hostPath:
+#         path: /var/mnt/local-hostpath
