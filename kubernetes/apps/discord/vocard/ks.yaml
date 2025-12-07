@@ -4,7 +4,7 @@ metadata:
   name: discord
 spec:
   interval: 1m
-  path: ./kubernetes/apps/discord/bot
+  path: ./kubernetes/apps/discord/vocard
   prune: true
   sourceRef:
     kind: GitRepository
