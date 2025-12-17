@@ -10,7 +10,7 @@ spec:
     name: external-secrets
   interval: 1h
   values:
-    bitwarden-sdk-server:
+    "bitwarden-sdk-server":
       enabled: true
     leaderElect: true
     serviceMonitor:
