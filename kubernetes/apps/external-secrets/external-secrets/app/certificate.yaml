@@ -6,9 +6,7 @@ metadata:
 spec:
   secretName: bitwarden-tls-certs
   dnsNames:
-    - bitwarden-sdk-server.default.svc.cluster.local
-    - external-secrets-bitwarden-sdk-server.default.svc.cluster.local
-    - localhost
+    - bitwarden-sdk-server.external-secrets.svc.cluster.local
   privateKey:
     algorithm: RSA
     encoding: PKCS8
