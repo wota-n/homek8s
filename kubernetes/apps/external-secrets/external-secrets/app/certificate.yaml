@@ -14,5 +14,5 @@ spec:
     encoding: PKCS8
     size: 2048
   issuerRef:
-    name: letsencrypt-production
+    name: internal-ca
     kind: ClusterIssuer
