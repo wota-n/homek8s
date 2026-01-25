@@ -6,4 +6,5 @@ resources:
   # - ./grafanadashboard.yaml
   - ./helmrelease.yaml
   - ./ocirepository.yaml
-  # - ./pdb.yaml
+  - ./pdb.yaml
+  - ./certificate.yaml
