@@ -11,7 +11,15 @@ spec:
   interval: 1h
   values:
     bitwarden-sdk-server:
-      enabled: false
+      enabled: true
+      extraVolumes:
+        - name: tls
+          secret:
+            secretName: bitwarden-sdk-server-tls
+      extraVolumeMounts:
+        - name: tls
+          mountPath: /tls
+          readOnly: true
     leaderElect: true
     serviceMonitor:
       enabled: true
