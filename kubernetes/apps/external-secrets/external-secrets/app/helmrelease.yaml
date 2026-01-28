@@ -1,21 +1,21 @@
-# ---
-# # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
-# apiVersion: helm.toolkit.fluxcd.io/v2
-# kind: HelmRelease
-# metadata:
-#   name: external-secrets
-# spec:
-#   chartRef:
-#     kind: OCIRepository
-#     name: external-secrets
-#   interval: 1h
-#   values:
-#     bitwarden-sdk-server:
-#       enabled: true
-#     leaderElect: true
-#     serviceMonitor:
-#       enabled: true
-#     grafanaDashboard:
-#       enabled: false
-#     webhook:
-#       replicaCount: 2
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: external-secrets
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: external-secrets
+  interval: 1h
+  values:
+    bitwarden-sdk-server:
+      enabled: false
+    leaderElect: true
+    serviceMonitor:
+      enabled: true
+    grafanaDashboard:
+      enabled: false
+    webhook:
+      replicaCount: 2
