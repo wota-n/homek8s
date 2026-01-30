@@ -8,3 +8,4 @@ resources:
   - ./ocirepository.yaml
   - ./pdb.yaml
   - ./certificate.yaml
+  - ./secretstore.yaml
