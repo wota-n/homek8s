@@ -9,3 +9,4 @@ resources:
   - ./pdb.yaml
   - ./certificate.yaml
   - ./secretstore.yaml
+  - ./secret.sops.yaml
