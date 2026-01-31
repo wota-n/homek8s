@@ -5,11 +5,16 @@ kind: HelmRelease
 metadata:
   name: external-secrets
 spec:
+  install:
+    crds: CreateReplace  # <--- ADD THIS
+  upgrade:
+    crds: CreateReplace  # <--- ADD THIS
   chartRef:
     kind: OCIRepository
     name: external-secrets
   interval: 1h
   values:
+    installCRDs: true
     bitwarden-sdk-server:
       enabled: true
       extraVolumes:
