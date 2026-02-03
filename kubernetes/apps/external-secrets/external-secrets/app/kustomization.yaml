@@ -10,3 +10,4 @@ resources:
   - ./certificate.yaml
   - ./secretstore.yaml
   - ./secret.sops.yaml
+  - ./externalsecret.yaml
