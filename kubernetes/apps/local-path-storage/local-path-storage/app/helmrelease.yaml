@@ -1,0 +1,29 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: local-path-provisioner
+spec:
+  interval: 1h
+  chart:
+    spec:
+      # Path of the chart inside the GitRepository (tag pinned in gitrepository.yaml).
+      chart: deploy/chart/local-path-provisioner
+      sourceRef:
+        kind: GitRepository
+        name: local-path-provisioner
+  values:
+    # Provision onto the Talos RawVolume (dedicated-storage-raw, /dev/nvme0n1p1)
+    # mounted at /var/mnt/local-hostpath.
+    nodePathMap:
+      - node: DEFAULT_PATH_FOR_NON_LISTED_NODES
+        paths:
+          - /var/mnt/local-hostpath
+    storageClass:
+      create: true
+      name: local-path
+      # Not the default class: apps must opt in by setting spec.storageClassName.
+      defaultClass: false
+      reclaimPolicy: Delete
+      volumeBindingMode: WaitForFirstConsumer

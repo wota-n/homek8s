@@ -1,0 +1,44 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: rustdesk-server
+spec:
+  interval: 1h
+  chart:
+    spec:
+      # Path of the chart inside the GitRepository (tag pinned in gitrepository.yaml).
+      chart: charts/rustdesk-server
+      sourceRef:
+        kind: GitRepository
+        name: rustdesk-server
+  values:
+    # Pin the image to a stable, multi-arch tag instead of "latest".
+    image:
+      repository: rustdesk/rustdesk-server
+      tag: "1.1.16"
+
+    # Expose hbbs/hbbr as LoadBalancer services (Cilium L2 announcement).
+    # Clients connect to <IP>:21116 (ID) and <IP>:21117 (relay).
+    loadBalancer:
+      enabled: true
+
+    persistence:
+      enabled: true
+      accessMode: ReadWriteOnce
+      size: 1Gi
+      # Directly use the StorageClass provided by local-path-provisioner (NVMe raw volume).
+      storageClass: local-path
+
+    # Post-install hook that prints the generated Ed25519 encryption key so
+    # it can be copied into your RustDesk client. Safe to disable later.
+    keyExtraction:
+      enabled: true
+
+    # Bitwarden Secrets Manager integration is optional and off by default.
+    bitwarden:
+      enabled: false
+
+    ingress:
+      enabled: false
