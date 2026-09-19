@@ -1,0 +1,14 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/source.toolkit.fluxcd.io/gitrepository_v1.json
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: rustdesk-server
+spec:
+  interval: 1h
+  # Pinned to the upstream chart release tag (chart version 1.0.2).
+  # The publisher's HTTP Helm repo has broken tarball URLs, so we source
+  # the chart from git directly instead.
+  url: https://github.com/sachajw/k8s-helm-rustdesk
+  ref:
+    tag: rustdesk-server-1.0.2

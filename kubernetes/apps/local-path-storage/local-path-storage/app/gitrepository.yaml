@@ -1,0 +1,13 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/source.toolkit.fluxcd.io/gitrepository_v1.json
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: local-path-provisioner
+spec:
+  interval: 1h
+  # Pinned to the upstream release tag (chart version 0.0.37).
+  # No published Helm/OCI repo for this chart, so we source it from git directly.
+  url: https://github.com/rancher/local-path-provisioner
+  ref:
+    tag: v0.0.37
