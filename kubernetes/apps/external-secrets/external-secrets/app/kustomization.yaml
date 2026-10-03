@@ -9,5 +9,6 @@ resources:
   - ./pdb.yaml
   - ./certificate.yaml
   - ./secretstore.yaml
+  - ./clustersecretstore.yaml
   - ./secret.sops.yaml
   - ./externalsecret.yaml
