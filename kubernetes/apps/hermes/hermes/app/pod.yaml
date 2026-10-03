@@ -1,0 +1,105 @@
+---
+# Gateway-mode Hermes agent in a single pod. All state lives in /opt/data on a
+# local-path PVC; the image is stateless and re-tagged to upgrade.
+#
+# Process model (image v2026.9.x, s6-based): the ENTRYPOINT dispatcher execs
+# s6's /init as PID 1, which runs cont-init.d, starts the s6-rc "dashboard"
+# service (when HERMES_DASHBOARD=1) and runs our CMD as the "main program".
+# `gateway run` is the documented supervised invocation: the real gateway is
+# a dynamically registered s6 service (auto-restart in seconds) and the CMD
+# process is a sleep-infinity heartbeat — so NO exec probes against the
+# gateway process; probe the port instead.
+# ref: https://hermes-agent.nousresearch.com/docs/user-guide/docker
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hermes
+  labels:
+    k8s-app: hermes
+spec:
+  containers:
+    - name: hermes
+      # Pinned stable-channel tag + multi-arch index digest (== v2026.9.24).
+      # The community consensus pin (joryirving/chr1sd/blackjid/mirceanton
+      # all run this exact digest on tag v2026.9.24).
+      image: docker.io/nousresearch/hermes-agent:v2026.9.24@sha256:fca358f12efd65bfaaca05884166f15c0e2788375ca30d77061ac1ebc96452b7
+      imagePullPolicy: IfNotPresent
+      # Must stay the image default entrypoint (see header).
+      command: ["gateway", "run"]
+      env:
+        # The image remaps its internal "hermes" user to this uid:gid at boot
+        # (s6 stage2 hook) and chowns the data volume to it, so /opt/data is
+        # owned stably across pod rebuilds. 10000 is the image's build-time uid.
+        - name: HERMES_UID
+          value: "10000"
+        - name: HERMES_GID
+          value: "10000"
+        # /opt/data is the hermes home/state dir (config.yaml, .env, profiles,
+        # state.db, logs). The image's PATH already puts /opt/data/.local/bin
+        # ahead of the venv so user-installed tools resolve correctly.
+        - name: HERMES_HOME
+          value: /opt/data
+        - name: HOME
+          value: /opt/data
+        - name: TZ
+          value: UTC
+        # Start the supervised dashboard service in-container (replaces the
+        # community "dashboard sidecar container" pattern, which predates s6).
+        # Binds 0.0.0.0:9119 in-container (image default), so the auth gate
+        # engages and HERMES_DASHBOARD_BASIC_AUTH_* (Bitwarden Secret via
+        # envFrom below) are mandatory to serve at all.
+        - name: HERMES_DASHBOARD
+          value: "1"
+      # Every Bitwarden-provided key (LLM provider API keys, chat bot tokens,
+      # dashboard basic-auth credentials, optional API_SERVER_* / TELEGRAM_*
+      # ...) is injected as an env var. The image loads /opt/data/.env into
+      # the environment, so first-run `hermes setup` picks these up too.
+      envFrom:
+        - secretRef:
+            name: hermes
+      ports:
+        # Gateway health endpoint (always on when a gateway runs). The
+        # OpenAI-compatible API server only listens here when
+        # API_SERVER_ENABLED=true + API_SERVER_HOST + API_SERVER_KEY are set
+        # in the Bitwarden secret.
+        - name: api
+          containerPort: 8642
+        # Web dashboard.
+        - name: dashboard
+          containerPort: 9119
+      # Probes target the DASHBOARD (9119), the one service that is always
+      # supervised once HERMES_DASHBOARD=1. Do NOT probe 8642: that is the
+      # gateway's OpenAI API server, which only listens when
+      # API_SERVER_ENABLED=true (off by default). The gateway itself is
+      # s6-supervised (not the main process), so no exec/pgrep probes.
+      startupProbe:
+        tcpSocket:
+          port: dashboard
+        periodSeconds: 10
+        failureThreshold: 60
+      livenessProbe:
+        tcpSocket:
+          port: dashboard
+        periodSeconds: 30
+        timeoutSeconds: 5
+        failureThreshold: 5
+      readinessProbe:
+        tcpSocket:
+          port: dashboard
+        periodSeconds: 15
+        timeoutSeconds: 5
+        failureThreshold: 4
+      resources:
+        requests:
+          cpu: 250m
+          memory: 1Gi
+        limits:
+          cpu: "4"
+          memory: 6Gi
+      volumeMounts:
+        - name: data
+          mountPath: /opt/data
+  volumes:
+    - name: data
+      persistentVolumeClaim:
+        claimName: hermes
