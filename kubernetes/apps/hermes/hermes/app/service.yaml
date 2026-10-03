@@ -1,0 +1,36 @@
+---
+# Cluster-internal access to the dashboard/API. For LAN/public access, add an
+# HTTPRoute on the envoy-internal (or envoy-external) gateway pointing at this
+# service, e.g.:
+#
+#   apiVersion: gateway.networking.k8s.io/v1
+#   kind: HTTPRoute
+#   metadata:
+#     name: hermes
+#     namespace: hermes
+#   spec:
+#     parentRefs:
+#       - name: envoy-internal   # or envoy-external for public + DNS record
+#         namespace: network
+#     hostnames: ["hermes.<your-domain>"]
+#     rules:
+#       - matches:
+#           - path: { type: PathPrefix, value: / }
+#         backendRefs:
+#           - name: hermes
+#             port: 9119
+apiVersion: v1
+kind: Service
+metadata:
+  name: hermes
+spec:
+  type: ClusterIP
+  selector:
+    k8s-app: hermes
+  ports:
+    - name: dashboard
+      port: 9119
+      targetPort: dashboard
+    - name: api
+      port: 8642
+      targetPort: api
