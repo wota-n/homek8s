@@ -13,16 +13,16 @@ source "$(dirname "${0}")/lib/common.sh"
 # Source of truth: $HERMES_HOME (default ~/.hermes) on the machine you run this
 # from. Needs kubectl on PATH (mise-managed here). In the agent sandbox, run it
 # under a pty because /dev/stderr is broken: script -qec "<cmd>" /dev/null
+#
+# Skills are handed off to scripts/hermes-skills-sync.sh, which transfers them
+# with tar and hands the result back to the instance's uid 10000. (kubectl cp
+# left root-owned directories behind, which the instance's own agent could then
+# not edit.) That script also keeps a sync state, so the systemd timer can later
+# pull instance-side skill edits back to this machine.
 
 NAMESPACE="${HERMES_NAMESPACE:-hermes}"
 POD="${HERMES_POD:-hermes}"
 SRC="${HERMES_HOME:-${HOME}/.hermes}"
-SKILLS=(
-    homek8s-app-deployment
-    homek8s-bitwarden-debugging
-    homek8s-cluster-ops
-    obsidian-vault-mynotes
-)
 
 check_cli kubectl
 
@@ -31,12 +31,10 @@ check_cli kubectl
 log info "copying config.yaml" "pod=${POD}"
 kubectl -n "${NAMESPACE}" cp "${SRC}/config.yaml" "${POD}:/opt/data/config.yaml"
 
-log info "copying skills" "count=${#SKILLS[@]}"
-for skill in "${SKILLS[@]}"; do
-    [ -d "${SRC}/skills/${skill}" ] || log error "skill not found" "skill=${skill}"
-    kubectl -n "${NAMESPACE}" cp "${SRC}/skills/${skill}" "${POD}:/opt/data/skills/"
-    log debug "copied skill" "skill=${skill}"
-done
+# Mirror every custom skill (auto-discovered: any skill whose name is not in
+# .bundled_manifest) onto the PVC, local side winning.
+log info "pushing custom skills"
+"$(dirname "${0}")/hermes-skills-sync.sh" push
 
 # config.yaml is read at process start, so the gateway must restart to load it.
 log info "restarting pod to load the new config" "pod=${POD}"

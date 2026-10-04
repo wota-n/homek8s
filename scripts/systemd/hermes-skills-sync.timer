@@ -1,0 +1,17 @@
+[Unit]
+Description=Periodically sync local Hermes custom skills to the k8s hermes PVC
+Documentation=file:%h/homek8s/scripts/hermes-skills-sync.sh
+
+[Timer]
+# At boot (linger is enabled, so user units run without a login session) ...
+OnBootSec=3min
+# ... and every 15 min afterwards, so edits made on the k8s instance are pulled
+# back here without waiting for a reboot.
+OnUnitActiveSec=15min
+Persistent=true
+AccuracySec=30s
+RandomizedDelaySec=30s
+Unit=hermes-skills-sync.service
+
+[Install]
+WantedBy=timers.target
