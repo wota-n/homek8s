@@ -24,8 +24,11 @@ spec:
       # all run this exact digest on tag v2026.9.24).
       image: docker.io/nousresearch/hermes-agent:v2026.9.24@sha256:fca358f12efd65bfaaca05884166f15c0e2788375ca30d77061ac1ebc96452b7
       imagePullPolicy: IfNotPresent
-      # Must stay the image default entrypoint (see header).
-      command: ["gateway", "run"]
+      # Must stay the image default entrypoint (see header): `gateway run` is
+      # the CMD/args handed to the entrypoint dispatcher, NOT the entrypoint.
+      # Using `command:` here overrides the dispatcher and the kubelet tries to
+      # exec a binary literally named "gateway" -> executable file not found.
+      args: ["gateway", "run"]
       env:
         # The image remaps its internal "hermes" user to this uid:gid at boot
         # (s6 stage2 hook) and chowns the data volume to it, so /opt/data is
