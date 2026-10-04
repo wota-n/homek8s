@@ -1,0 +1,25 @@
+[Unit]
+Description=Sync local Hermes custom skills to the k8s hermes instance PVC
+Documentation=file:%h/homek8s/scripts/hermes-skills-sync.sh
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# No shell: the script is executable and carries its own shebang.
+ExecStart=%h/homek8s/scripts/hermes-skills-sync.sh sync
+# kubectl + jq are mise-managed, so the mise shims must be on PATH.
+Environment=PATH=%h/.local/share/mise/shims:/usr/local/bin:/usr/bin:/bin
+Environment=KUBECONFIG=%h/homek8s/kubeconfig
+Environment=HERMES_HOME=%h/.hermes
+WorkingDirectory=%h/homek8s
+# Housekeeping, not urgent.
+Nice=10
+IOSchedulingClass=idle
+# Exit 2 means "conflict: a human decision is needed" (see the script header).
+# It is deliberately NOT in SuccessExitStatus, so `systemctl --user --failed`
+# turns red and the conflict is visible instead of silently ignored.
+TimeoutStartSec=120
+
+[Install]
+WantedBy=default.target

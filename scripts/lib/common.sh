@@ -51,15 +51,18 @@ function log() {
         done
     fi
 
-    # Determine output stream based on log level
-    local output_stream="/dev/stdout"
+    # Determine output stream based on log level. Use a bare fd number rather
+    # than /dev/stdout or /dev/stderr: those are symlinks into /proc/self/fd,
+    # and re-opening fd 1/2 fails with ENXIO when the process's stdout/stderr is
+    # a socket (systemd journal) instead of a tty or a regular file.
+    local output_fd=1
     if [[ "$level" == "error" ]]; then
-        output_stream="/dev/stderr"
+        output_fd=2
     fi
 
     # Print the log message
     printf "%s %b%s%b %s %b\n" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
-        "${color}" "${level^^}" "\033[0m" "${msg}" "${data}" >"${output_stream}"
+        "${color}" "${level^^}" "\033[0m" "${msg}" "${data}" >&${output_fd}
 
     # Exit if the log level is error
     if [[ "$level" == "error" ]]; then
