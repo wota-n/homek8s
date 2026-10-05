@@ -309,6 +309,19 @@ ensure_remote_dir() {
     kubectl -n "${NAMESPACE}" exec "${POD}" -- mkdir -p -- "${REMOTE_SKILLS}/${skill}"
 }
 
+# Is this base key ("<skill>/<path...>") owned by a skill in MANAGED? MANAGED holds
+# full relative skill paths, so the skill part may itself contain slashes
+# ("ai-agents/strata-local-llm"). Match any MANAGED entry that is a path prefix of
+# the key; the trailing "/" keeps "dev" from matching "devops/...". A false result
+# means the skill is gone from both sides and the entry is an orphan to forget.
+base_key_is_managed() {
+    local k="${1}" m
+    for m in "${!MANAGED[@]}"; do
+        [[ "${k}" == "${m}/"* ]] && return 0
+    done
+    return 1
+}
+
 chown_remote_skill() {
     local skill="${1}"
     [ "${DRY_RUN}" = 1 ] && return 0
@@ -364,10 +377,19 @@ fi
 # On a full run, forget skills that no longer exist on either side, so the state
 # does not accumulate orphans for skills that were deleted (or renamed). A
 # --skill run only touches what it was asked for and never prunes.
+#
+# MANAGED holds FULL relative paths ("homek8s-cluster-ops", but also
+# "ai-agents/strata-local-llm"), so a base key "devops/local-llm-servers/SKILL.md"
+# must be matched by PREFIX. Splitting the key at the first slash (${k%%/*}) and
+# testing that against MANAGED only works for top-level skills by accident: for a
+# category-nested skill it yields "ai-agents", which MANAGED never holds, so the
+# base entry is silently dropped every run and the three-way reconcile degrades to
+# two-way (any edit on both sides then conflicts). Match a MANAGED path prefix instead.
 if [ ${#SELECTED[@]} -eq 0 ] && [ ${#B[@]} -gt 0 ]; then
     for k in "${!B[@]}"; do
-        s="${k%%/*}"
-        if [ -z "${MANAGED[$s]:-}" ]; then unset "B[${k}]"; fi
+        if ! base_key_is_managed "${k}"; then
+            unset "B[${k}]"
+        fi
     done
 fi
 
