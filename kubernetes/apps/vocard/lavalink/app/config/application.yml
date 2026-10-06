@@ -38,8 +38,13 @@ lavalink:
     # set this to the node's reachable IP if playback stalls or fails.
     # address: 192.168.1.0
   plugins:
-    - dependency: "dev.lavalink.youtube:youtube-plugin:1.18.2"
-      repository: "https://maven.lavalink.dev/releases"
+    # SNAPSHOT build, pinned by commit hash. Release 1.18.2 (Jul 2026) fails
+    # with "All clients failed to load the item" on most videos — the plugin's
+    # open issue #241 shows the same trace on 1.18.2, while this later commit
+    # plays them. Pinned deliberately: a snapshot tag would drift.
+    - dependency: "dev.lavalink.youtube:youtube-plugin:f45bbb7aebfcbc1c553769e04af6cd43afa8b7c3"
+      snapshot: true
+      repository: "https://maven.lavalink.dev/snapshots"
 
 plugins:
   youtube:
@@ -47,22 +52,24 @@ plugins:
     allowSearch: true
     allowDirectVideoIds: true
     allowDirectPlaylistIds: true
-    # Ordered most-reliable-first. TV is first deliberately: it is the one
-    # OAuth-capable client and YouTube gates far fewer videos for it. A
-    # NARROW list is the failure mode here — with only WEB/WEB_EMBEDDED the
-    # plugin has no cipher left to derive a stream URL and reports
+    # WIDE list is the important part. With only WEB/WEBEMBEDDED configured the
+    # plugin exhausts its chain on videos YouTube gates and reports
     # "No supported audio streams available, available types: " (empty), which
-    # the bot surfaces as "All clients failed to load the item".
+    # the bot surfaces as "All clients failed to load the item". Each client is
+    # refused for a different reason on a different video, so breadth is what
+    # makes playback reliable. Order matters less than membership — note the
+    # plugin renames some entries at load (TV -> TVHTML5), so do not read the
+    # startup "initialised with clients" line as proof your exact list applied.
     clients:
-      - TV
-      - MWEB
-      - WEB
       - MUSIC
       - WEBEMBEDDED
       - ANDROID_VR
-      - TVHTML5_SIMPLY
       - ANDROID_MUSIC
+      - TVHTML5_SIMPLY
+      - TV
       - IOS
+      - WEB
+      - MWEB
     # Signature cipher is no longer derivable from YouTube's JS, so point at a
     # public cipher server instead of relying on the in-process cipher. Without
     # this, WEB/WEB_EMBEDDED cannot produce a playable stream URL.
