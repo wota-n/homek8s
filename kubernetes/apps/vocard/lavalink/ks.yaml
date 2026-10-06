@@ -10,10 +10,6 @@ spec:
     substituteFrom:
       - name: cluster-secrets
         kind: Secret
-      # application.yml carries ${YOUTUBE_OAUTH_REFRESH_TOKEN} from the
-      # ESO-owned lavalink Secret, so it must be substituted here too.
-      - name: lavalink
-        kind: Secret
   prune: true
   sourceRef:
     kind: GitRepository
