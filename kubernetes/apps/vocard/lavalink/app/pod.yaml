@@ -18,6 +18,12 @@ spec:
       env:
         - name: _JAVA_OPTIONS
           value: -Xmx512m
+        # Lavalink's bundled application.yml defaults to port 8080; the bot
+        # dials lavalink:2333 (and the Service targets 2333), so pin the port
+        # explicitly. LAVALINK_SERVER_PASSWORD (from the ESO Secret) overrides
+        # server.password.
+        - name: SERVER_PORT
+          value: "2333"
       envFrom:
         - secretRef:
             name: lavalink
