@@ -2,17 +2,13 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: vocard
+  name: lavalink
 spec:
   interval: 1m
-  path: ./kubernetes/apps/vocard/vocard/app
+  path: ./kubernetes/apps/vocard/lavalink/app
   postBuild:
     substituteFrom:
       - name: cluster-secrets
-        kind: Secret
-      - name: vocard
-        kind: Secret
-      - name: lavalink
         kind: Secret
   prune: true
   sourceRef:
