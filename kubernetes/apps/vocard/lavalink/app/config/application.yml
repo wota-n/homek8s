@@ -69,3 +69,17 @@ plugins:
     remoteCipher:
       url: https://cipher.kikkia.dev/
       userAgent: homek8s-vocard
+    # OAuth: the plugin has NO clientId/clientSecret option — it ships its own
+    # OAuth client and uses the DEVICE flow. With an empty refreshToken it
+    # starts normally and prints a device code to the log; authorize it at
+    # https://www.google.com/device and the plugin logs the refresh token
+    # once. Set skipInitialization afterwards so restarts stay silent.
+    #
+    # Use a BURNER Google account — automated streaming can get an account
+    # terminated.
+    #
+    # BSM key: YOUTUBE_OAUTH_REFRESH_TOKEN
+    oauth:
+      enabled: true
+      refreshToken: "${YOUTUBE_OAUTH_REFRESH_TOKEN}"
+      skipInitialization: false
