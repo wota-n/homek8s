@@ -1,0 +1,14 @@
+---
+# MongoDB state (image declares /data/db and /data/configdb volumes; the PVC
+# at /data covers both).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongo
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 5Gi

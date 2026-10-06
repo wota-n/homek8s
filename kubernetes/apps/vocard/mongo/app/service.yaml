@@ -1,0 +1,14 @@
+---
+# Cluster-internal hostname for the vocard bot's mongodb_url.
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo
+spec:
+  type: ClusterIP
+  selector:
+    k8s-app: mongo
+  ports:
+    - name: mongo
+      port: 27017
+      targetPort: mongo
