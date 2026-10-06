@@ -1,0 +1,14 @@
+---
+# Vocard Discord music bot, bare pod. Image CMD is `python -u main.py` (no
+# entrypoint dispatcher), so no command/args override.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: vocard
+  labels:
+    k8s-app: vocard
+spec:
+  containers:
+    - name: vocard
+      image: ghcr.io/chocomeow/vocard:beta@sha256:1f2454bad77648dca9163d7211aaaa293a2918f45a6ec23b3a2db4d6b3749857
+      imagePullPolicy: IfNotPresent
