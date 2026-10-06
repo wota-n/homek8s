@@ -1,0 +1,33 @@
+---
+# Minimal always-on placeholder pod: a bare Alpine 3.21 container idling
+# forever under busybox's `sleep`. Nothing is served, nothing is stored --
+# it exists only to hold the `strata` namespace live (a pod + a Service
+# selector) so the namespace survives prune and can host later workloads.
+#
+# Pinned tag + amd64 manifest digest (the kubelet here is x86_64). The digest
+# is what actually gets pulled, so a re-tagged upstream can never silently
+# swap the base layer; bump both together to upgrade.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: strata
+  labels:
+    k8s-app: strata
+spec:
+  containers:
+    - name: strata
+      image: docker.io/library/alpine:3.21@sha256:ce64758a109eb420d874a118f87920e625e12d3634e03b4a5573fd9f6e5d3507
+      imagePullPolicy: IfNotPresent
+      # Alpine's default CMD is /bin/sh, which exits immediately -> the pod
+      # would sit in Exited. busybox sleep is the image's own binary, so no
+      # shell/PATH assumptions: the container stays Running indefinitely.
+      command: ["/bin/sleep", "infinity"]
+      # No probes: nothing to probe. The container is supervised by kubelet,
+      # so `sleep` staying alive IS the readiness signal.
+      resources:
+        requests:
+          cpu: 10m
+          memory: 4Mi
+        limits:
+          cpu: 100m
+          memory: 16Mi
