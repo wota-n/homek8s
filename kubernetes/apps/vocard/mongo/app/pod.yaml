@@ -26,6 +26,19 @@ spec:
       volumeMounts:
         - name: data
           mountPath: /data
+        - name: ensure-user
+          mountPath: /hooks
+          readOnly: true
+      # The image entrypoint only provisions the app user when /data/db is
+      # empty, so a PVC that re-provisions (or gets wiped) drops the user and
+      # the bot crash-loops on auth until someone runs mongosh by hand. The
+      # hook re-creates/updates it on every container start so it self-heals.
+      # It reads the password from this container's env, never from a command
+      # line, so no secret is ever echoed.
+      lifecycle:
+        postStart:
+          exec:
+            command: ["sh", "/hooks/ensure-user.sh"]
       startupProbe:
         tcpSocket:
           port: mongo
@@ -39,3 +52,6 @@ spec:
     - name: data
       persistentVolumeClaim:
         claimName: mongo2
+    - name: ensure-user
+      configMap:
+        name: mongo-ensure-user
