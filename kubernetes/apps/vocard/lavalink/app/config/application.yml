@@ -79,7 +79,11 @@ plugins:
     # terminated.
     #
     # BSM key: YOUTUBE_OAUTH_REFRESH_TOKEN
+    #
+    # skipInitialization: true means "we already have a token" — Lavalink uses
+    # it silently instead of printing a new device code on every restart. Set
+    # it back to false only when intentionally re-authorizing.
     oauth:
       enabled: true
       refreshToken: "${YOUTUBE_OAUTH_REFRESH_TOKEN}"
-      skipInitialization: false
+      skipInitialization: true
