@@ -12,6 +12,8 @@ spec:
         kind: Secret
       - name: vocard
         kind: Secret
+      - name: lavalink
+        kind: Secret
   prune: true
   sourceRef:
     kind: GitRepository

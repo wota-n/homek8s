@@ -1,0 +1,38 @@
+---
+# Lavalink v4 audio node. Image ENTRYPOINT is `java -jar Lavalink.jar` with
+# WorkingDir /opt/Lavalink, so no command/args override is needed — the
+# bundled application.yml is picked up from the classpath and
+# LAVALINK_SERVER_PASSWORD overrides its server.password. The bot resolves
+# this pod as `lavalink:2333` via the ClusterIP Service.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: lavalink
+  labels:
+    k8s-app: lavalink
+spec:
+  containers:
+    - name: lavalink
+      image: ghcr.io/lavalink-devs/lavalink:latest@sha256:87ae53e60dc147c9dddb28e126ce503a26bc8d1477ed8d99543614677882afff
+      imagePullPolicy: IfNotPresent
+      env:
+        - name: _JAVA_OPTIONS
+          value: -Xmx512m
+      envFrom:
+        - secretRef:
+            name: lavalink
+      startupProbe:
+        tcpSocket:
+          port: lavalink
+        timeoutSeconds: 30
+        periodSeconds: 10
+        failureThreshold: 30
+      ports:
+        - name: lavalink
+          containerPort: 2333
+      resources:
+        requests:
+          memory: 512Mi
+          cpu: 100m
+        limits:
+          memory: 1Gi

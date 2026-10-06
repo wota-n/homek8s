@@ -7,7 +7,7 @@
         "DEFAULT": {
             "host": "lavalink",
             "port": 2333,
-            "password": "youshallnotpass",
+            "password": "${LAVALINK_PASSWORD}",
             "secure": false,
             "identifier": "DEFAULT",
             "reconnect_strategy": "ReconnectOnDrop"
