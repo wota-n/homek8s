@@ -14,6 +14,13 @@
         }
     },
     "prefix": "?",
+    "ipc_client": {
+        "host": "127.0.0.1",
+        "port": 8000,
+        "password": "",
+        "secure": false,
+        "enable": false
+    },
     "logging": {
         "file": {"path": "./logs", "enable": true},
         "level": {"discord": "INFO", "vocard": "INFO"}
