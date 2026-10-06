@@ -6,5 +6,6 @@ configMapGenerator:
     files:
       - settings.json=config/settings.json
 resources:
+  - ./externalsecret.yaml
   - ./pvc.yaml
   - ./pod.yaml
