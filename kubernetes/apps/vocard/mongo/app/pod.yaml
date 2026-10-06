@@ -38,4 +38,4 @@ spec:
   volumes:
     - name: data
       persistentVolumeClaim:
-        claimName: mongo
+        claimName: mongo2
