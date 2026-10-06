@@ -1,0 +1,23 @@
+{
+    "token": "${VOCARD_TOKEN}",
+    "client_id": "${VOCARD_CLIENT_ID}",
+    "mongodb_url": "${VOCARD_MONGODB_URL}",
+    "mongodb_name": "vocard",
+    "nodes": {
+        "DEFAULT": {
+            "host": "lavalink",
+            "port": 2333,
+            "password": "youshallnotpass",
+            "secure": false,
+            "identifier": "DEFAULT",
+            "reconnect_strategy": "ReconnectOnDrop"
+        }
+    },
+    "prefix": "?",
+    "logging": {
+        "file": {"path": "./logs", "enable": true},
+        "level": {"discord": "INFO", "vocard": "INFO"}
+    },
+    "default_search_platform": "youtube",
+    "lyrics_platform": "lrclib"
+}

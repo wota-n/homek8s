@@ -1,6 +1,12 @@
 ---
-# Vocard Discord music bot, bare pod. Image CMD is `python -u main.py` (no
-# entrypoint dispatcher), so no command/args override.
+# Vocard Discord music bot. Image CMD is `python -u main.py`, no entrypoint
+# dispatcher -> no command/args override on the main container.
+#
+# The bot REWRITES /app/settings.json (update_json on version sync) and writes
+# ./logs/, so /app must be a writable volume. Mounting the PVC straight over
+# /app hides the image's code (main.py, cogs, voicelink), so an init
+# container (same image, PVC at /pv) seeds the PVC with the image's /app tree
+# plus the git-managed settings.json from the ConfigMap (/src).
 apiVersion: v1
 kind: Pod
 metadata:
@@ -12,3 +18,30 @@ spec:
     - name: vocard
       image: ghcr.io/chocomeow/vocard:beta@sha256:1f2454bad77648dca9163d7211aaaa293a2918f45a6ec23b3a2db4d6b3749857
       imagePullPolicy: IfNotPresent
+      volumeMounts:
+        - name: data
+          mountPath: /app
+  initContainers:
+    - name: seed
+      image: ghcr.io/chocomeow/vocard:beta@sha256:1f2454bad77648dca9163d7211aaaa293a2918f45a6ec23b3a2db4d6b3749857
+      imagePullPolicy: IfNotPresent
+      command: ["sh", "-c"]
+      args:
+        - |
+          set -eu
+          # Image code (main.py, cogs, voicelink, ...) -> PVC
+          cp -a /app/. /pv/
+          # Git-managed settings.json (ConfigMap) over the example file
+          cp /src/settings.json /pv/settings.json
+      volumeMounts:
+        - name: data
+          mountPath: /pv
+        - name: settings
+          mountPath: /src
+  volumes:
+    - name: data
+      persistentVolumeClaim:
+        claimName: vocard
+    - name: settings
+      configMap:
+        name: vocard-settings
