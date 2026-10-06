@@ -35,3 +35,7 @@ spec:
       ports:
         - name: mongo
           containerPort: 27017
+  volumes:
+    - name: data
+      persistentVolumeClaim:
+        claimName: mongo
