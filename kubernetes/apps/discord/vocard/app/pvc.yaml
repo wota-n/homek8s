@@ -1,0 +1,14 @@
+---
+# Vocard state: settings.json (rewritten by the bot on version sync), logs/,
+# and the whole /app tree (PVC is mounted over /app, seeded by init container).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vocard
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 1Gi
