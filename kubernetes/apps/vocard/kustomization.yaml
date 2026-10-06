@@ -9,3 +9,4 @@ components:
 resources:
   - ./namespace.yaml
   - ./vocard/ks.yaml
+  - ./mongo/ks.yaml

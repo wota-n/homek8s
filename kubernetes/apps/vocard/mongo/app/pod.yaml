@@ -1,0 +1,37 @@
+---
+# MongoDB Community server. Image ENTRYPOINT is docker-entrypoint.py with CMD
+# `mongod` — no override needed. The entrypoint creates the initial user from
+# MONGODB_USERNAME/MONGODB_PASSWORD/MONGODB_DB on first run (empty PVC), so
+# auth is active from the start. Password comes from the `mongo` Secret via
+# envFrom (ESO-owned).
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mongo
+  labels:
+    k8s-app: mongo
+spec:
+  containers:
+    - name: mongo
+      image: docker.io/mongodb/mongodb-community-server:latest@sha256:394eae47e38bf86d4191b86e018d9fca9b7521f2207dd90c7737f5ff419846a4
+      imagePullPolicy: IfNotPresent
+      env:
+        - name: MONGODB_USERNAME
+          value: vocard
+        - name: MONGODB_DB
+          value: vocard
+      envFrom:
+        - secretRef:
+            name: mongo
+      volumeMounts:
+        - name: data
+          mountPath: /data
+      startupProbe:
+        tcpSocket:
+          port: mongo
+        timeoutSeconds: 60
+        periodSeconds: 15
+        failureThreshold: 20
+      ports:
+        - name: mongo
+          containerPort: 27017
