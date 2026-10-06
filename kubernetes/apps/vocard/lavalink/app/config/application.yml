@@ -40,10 +40,25 @@ plugins:
     allowSearch: true
     allowDirectVideoIds: true
     allowDirectPlaylistIds: true
-    # Ordered by reliability; the plugin falls through to the next client when
-    # one is blocked by YouTube.
+    # Ordered most-reliable-first. TV is first deliberately: it is the one
+    # OAuth-capable client and YouTube gates far fewer videos for it. A
+    # NARROW list is the failure mode here — with only WEB/WEB_EMBEDDED the
+    # plugin has no cipher left to derive a stream URL and reports
+    # "No supported audio streams available, available types: " (empty), which
+    # the bot surfaces as "All clients failed to load the item".
     clients:
-      - MUSIC
-      - ANDROID_VR
+      - TV
+      - MWEB
       - WEB
+      - MUSIC
       - WEBEMBEDDED
+      - ANDROID_VR
+      - TVHTML5_SIMPLY
+      - ANDROID_MUSIC
+      - IOS
+    # Signature cipher is no longer derivable from YouTube's JS, so point at a
+    # public cipher server instead of relying on the in-process cipher. Without
+    # this, WEB/WEB_EMBEDDED cannot produce a playable stream URL.
+    remoteCipher:
+      url: https://cipher.kikkia.dev/
+      userAgent: homek8s-vocard
