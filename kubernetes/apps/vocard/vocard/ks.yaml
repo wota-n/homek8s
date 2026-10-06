@@ -5,7 +5,7 @@ metadata:
   name: vocard
 spec:
   interval: 1m
-  path: ./kubernetes/apps/discord/vocard/app
+  path: ./kubernetes/apps/vocard/vocard/app
   postBuild:
     substituteFrom:
       - name: cluster-secrets
@@ -15,5 +15,5 @@ spec:
     kind: GitRepository
     name: flux-system
     namespace: flux-system
-  targetNamespace: discord
+  targetNamespace: vocard
   wait: false
