@@ -17,6 +17,14 @@ lavalink:
     # Password/port come from env; these are placeholders Lavalink overrides.
     password: ""
     port: 2333
+    # Trace-level logging for the youtube plugin while diagnosing why most
+    # videos return "All clients failed to load the item". Drop back to INFO
+    # once playback is confirmed working — the DEBUG dumps of the InnerTube
+    # response are very large.
+    logging:
+      level:
+        dev.lavalink.youtube: DEBUG
+        lavalink: INFO
     sources:
       # Required: the plugin replaces the deprecated built-in source.
       youtube: false
