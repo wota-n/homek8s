@@ -69,17 +69,3 @@ plugins:
     remoteCipher:
       url: https://cipher.kikkia.dev/
       userAgent: homek8s-vocard
-    # OAuth lets YouTube see a real signed-in user instead of an anonymous
-    # InnerTube client. This is what makes YouTube return a playable stream URL
-    # for videos it otherwise refuses ("All clients failed to load the item",
-    # audio formats present but with no url/signatureCipher).
-    #
-    # The refresh token comes from the ESO-owned `lavalink` Secret via Flux
-    # postBuild substitution — it is NOT committed to git. Use a BURNER Google
-    # account: automated streaming can get an account terminated, so keep the
-    # primary account out of this entirely.
-    #
-    # Required Bitwarden key: YOUTUBE_OAUTH_REFRESH_TOKEN
-    oauth:
-      enabled: true
-      refreshToken: "${YOUTUBE_OAUTH_REFRESH_TOKEN}"
