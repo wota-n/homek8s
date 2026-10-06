@@ -1,0 +1,49 @@
+# Lavalink configuration, shipped from git so the app is reproducible.
+# Mounted at /opt/Lavalink/application.yml — Lavalink reads this path in
+# preference to the copy bundled in the image.
+#
+# The password is NOT set here: LAVALINK_SERVER_PASSWORD (from the ESO-owned
+# Secret, mapped in pod.yaml) overrides server.password. The port is likewise
+# pinned with SERVER_PORT, since the bundled default is 8080 while every
+# Lavalink client convention expects 2333.
+#
+# The built-in YouTube source is DISABLED and replaced by the
+# lavalink-devs/youtube-source plugin. The built-in source is deprecated and
+# currently broken against YouTube: its signature cipher extraction fails with
+# "Must find action functions from script", which surfaces in the bot as
+# "Something went wrong while looking up the track. [fault]".
+lavalink:
+  server:
+    # Password/port come from env; these are placeholders Lavalink overrides.
+    password: ""
+    port: 2333
+    sources:
+      # Required: the plugin replaces the deprecated built-in source.
+      youtube: false
+      # Explicitly keep the other remote sources on.
+      soundcloud: true
+      bandcamp: true
+      twitch: true
+      vimeo: true
+      http: true
+      local: false
+    # Lavalink needs a real voice server address for playback. Uncomment and
+    # set this to the node's reachable IP if playback stalls or fails.
+    # address: 192.168.1.0
+  plugins:
+    - dependency: "dev.lavalink.youtube:youtube-plugin:1.18.2"
+      repository: "https://maven.lavalink.dev/releases"
+
+plugins:
+  youtube:
+    enabled: true
+    allowSearch: true
+    allowDirectVideoIds: true
+    allowDirectPlaylistIds: true
+    # Ordered by reliability; the plugin falls through to the next client when
+    # one is blocked by YouTube.
+    clients:
+      - MUSIC
+      - ANDROID_VR
+      - WEB
+      - WEBEMBEDDED
