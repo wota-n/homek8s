@@ -1,0 +1,50 @@
+---
+# Tailscale Kubernetes Operator — cluster-wide, lives in `network` alongside
+# envoy/cloudflare-tunnel because it is cluster plumbing, not part of any app.
+#
+# Apps are exposed by annotating THEIR OWN Service; nothing app-side references
+# this HelmRelease. See media/jellyfin when that lands.
+#
+# The OAuth credentials are owned by ESO (see externalsecret.yaml), so the
+# `oauth` block below is intentionally EMPTY. If you set oauth.clientId here
+# the chart would render its own Secret and Flux would push the literal into a
+# public repo. Do not do that.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: tailscale-operator
+spec:
+  chartRef:
+    kind: HelmRepository
+    name: tailscale-operator
+  interval: 1h
+  values:
+    installCRDs: true
+
+    # Operator's own ACL tag. Must be listed under `tagOwners` in the tailnet
+    # ACL policy, otherwise the operator cannot authenticate.
+    operatorConfig:
+      defaultTags:
+        - "tag:k8s-operator"
+      image:
+        repository: ghcr.io/tailscale/k8s-operator
+        tag: "1.102.4"
+      resources:
+        requests:
+          cpu: 10m
+          memory: 128Mi
+        limits:
+          memory: 512Mi
+
+    # Tag applied to every proxy the operator creates. Also needs a tagOwners
+    # entry pointing at tag:k8s-operator.
+    proxyConfig:
+      image:
+        repository: ghcr.io/tailscale/tailscale
+        tag: "1.102.4"
+      defaultTags: "tag:k8s"
+
+    # We reach the cluster over the LAN, not through the public api endpoint.
+    apiServerProxyConfig:
+      mode: "false"
+      allowImpersonation: "false"
