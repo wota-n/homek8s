@@ -15,7 +15,7 @@ metadata:
   name: tailscale-operator
 spec:
   chartRef:
-    kind: HelmRepository
+    kind: HelmChart
     name: tailscale-operator
   interval: 1h
   values:
