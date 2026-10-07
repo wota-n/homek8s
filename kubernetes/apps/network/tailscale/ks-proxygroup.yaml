@@ -1,0 +1,26 @@
+---
+# Second-stage Kustomization for the Tailscale app.
+#
+# ProxyGroup is a CRD installed BY the HelmRelease in app/, so it cannot live in
+# the same dir: Flux dry-runs the whole dir before applying, and an unknown kind
+# fails the entire apply (and blocks the operator from ever being created).
+# Once the operator's CRDs are on the cluster this becomes valid.
+#
+# `dependsOn` makes the ordering explicit rather than relying on manual timing.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: tailscale-proxygroup
+spec:
+  interval: 1h
+  path: ./kubernetes/apps/network/tailscale/proxygroup
+  dependsOn:
+    - name: tailscale
+      namespace: network
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  targetNamespace: network
+  wait: false
