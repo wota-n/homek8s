@@ -1,0 +1,18 @@
+---
+# Shared ingress ProxyGroup. Cluster-scoped (ProxyGroup is not namespaced), so
+# this lives in the `network` namespace and every exposed app just references it
+# by name from its own Service annotation:
+#
+#   tailscale.com/proxy-group: ingress
+#
+# Replicas default to 2. On a single-node cluster that is two proxy pods on one
+# box — not real HA, but it does mean a restart of one does not drop traffic.
+apiVersion: tailscale.com/v1alpha2
+kind: ProxyGroup
+metadata:
+  name: ingress
+spec:
+  type: ingress
+  replicas: 2
+  tags:
+    - "tag:k8s"
