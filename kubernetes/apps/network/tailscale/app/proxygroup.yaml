@@ -7,7 +7,7 @@
 #
 # Replicas default to 2. On a single-node cluster that is two proxy pods on one
 # box — not real HA, but it does mean a restart of one does not drop traffic.
-apiVersion: tailscale.com/v1alpha2
+apiVersion: tailscale.com/v1alpha1
 kind: ProxyGroup
 metadata:
   name: ingress

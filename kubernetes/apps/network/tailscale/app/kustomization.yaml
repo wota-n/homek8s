@@ -4,5 +4,8 @@ kind: Kustomization
 resources:
   - ./helmrepository.yaml
   - ./externalsecret.yaml
-  - ./proxygroup.yaml
   - ./helmrelease.yaml
+  # ./proxygroup.yaml is deliberately NOT here. It is applied by the separate
+  # ks-proxygroup.yaml, because Flux dry-runs this whole dir before applying
+  # anything and ProxyGroup is a CRD that the HelmRelease above only CREATES.
+  # One unresolvable kind would block the operator from ever being installed.
