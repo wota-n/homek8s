@@ -28,7 +28,9 @@ spec:
         - "tag:k8s-operator"
       image:
         repository: ghcr.io/tailscale/k8s-operator
-        tag: "1.102.4"
+        # Chart version is 1.102.4; the IMAGE tag is v1.102.4 (leading v).
+        # Verified by manifest HEAD: ghcr 1.102.4 -> 404, v1.102.4 -> 200.
+        tag: "v1.102.4"
       resources:
         requests:
           cpu: 10m
@@ -41,7 +43,8 @@ spec:
     proxyConfig:
       image:
         repository: ghcr.io/tailscale/tailscale
-        tag: "1.102.4"
+        # Same leading-v convention as the operator image.
+        tag: "v1.102.4"
       defaultTags: "tag:k8s"
 
     # We reach the cluster over the LAN, not through the public api endpoint.
