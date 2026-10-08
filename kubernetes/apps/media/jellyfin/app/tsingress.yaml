@@ -1,0 +1,36 @@
+---
+# Tailscale Ingress (L7) for Jellyfin — the DURABLE path.
+#
+# Replaces the earlier `Service` + loadBalancerClass: tailscale approach. Two
+# reasons, both learned the hard way:
+#
+# 1. DURABILITY. For a `Service`, the operator advertises the VIP but never writes
+#    the endpoint mapping, so nothing listens and no error is logged (upstream
+#    tailscale#12079 / #14279, fixed in 1.78). It was working only because the
+#    serve config had been applied BY HAND — in-memory, one replica, wiped by any
+#    pod restart. For an `Ingress`, the operator DOES write the serve config, so
+#    this survives restarts, reconciles and reschedules.
+#
+# 2. HTTPS. A `Service` VIP is L3/L4 and terminates no TLS, so it only ever
+#    served plaintext HTTP on the mapped port. An `Ingress` terminates TLS with a
+#    real Tailscale certificate, giving a normal https:// URL.
+#
+# Tailnet-only. NOT Funnel, and never on envoy-external: streaming video through
+# Cloudflare Tunnel violates their CDN terms of service.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: jellyfin
+  annotations:
+    # Share the existing ProxyGroup so this does not spawn a dedicated proxy.
+    tailscale.com/proxy-group: ingress
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: jellyfin-tailscale
+      port:
+        number: 8096
+  tls:
+    - hosts:
+        - jellyfin

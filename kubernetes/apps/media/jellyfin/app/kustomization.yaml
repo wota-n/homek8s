@@ -6,3 +6,5 @@ resources:
   - ./helmrelease.yaml
   - ./ocirepository.yaml
   - ./httproute.yaml
+  - ./tailscale-service.yaml
+  - ./tsingress.yaml
