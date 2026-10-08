@@ -1,0 +1,87 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: jellyfin
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: jellyfin
+  interval: 1h
+  values:
+    controllers:
+      jellyfin:
+        strategy: Recreate
+        containers:
+          app:
+            image:
+              repository: docker.io/jellyfin/jellyfin
+              tag: 10.10.7
+            env:
+              # Read the user/group from the pod's securityContext rather than
+              # hardcoding, so the media claim stays writable either way.
+              JELLYFIN_PublishedServerUrl: ""
+            envFrom:
+              - secretRef:
+                  name: jellyfin
+            securityContext:
+              runAsUser: 1000
+              runAsGroup: 1000
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+    service:
+      app:
+        # Annotated for Tailscale ingress. This is the ONLY exposure Jellyfin
+        # gets: NOT envoy-external. Streaming video through Cloudflare Tunnel
+        # violates their CDN terms of service (the substance of the retired
+        # "Section 2.8", now in the Service-Specific Terms CDN entry, and it
+        # covers Tunnel traffic).
+        annotations:
+          tailscale.com/proxy-group: ingress
+          tailscale.com/tls-hostname: jellyfin
+        type: LoadBalancer
+        loadBalancerClass: tailscale
+        ports:
+          http:
+            port: 8096
+    ingress:
+      main:
+        enabled: false
+    persistence:
+      config:
+        enabled: true
+        type: persistentVolumeClaim
+        storageClass: local-path
+        accessMode: ReadWriteOnce
+        size: 5Gi
+      cache:
+        enabled: true
+        type: persistentVolumeClaim
+        storageClass: local-path
+        accessMode: ReadWriteOnce
+        size: 20Gi
+      media:
+        enabled: true
+        type: persistentVolumeClaim
+        existingClaim: media-data
+        globalMounts:
+          - path: /data
+      # /dev/dri for QSV hardware transcoding. app-template 4.4.0 and 5.2.1 both
+      # REJECT a `devices:` key (schema: additionalProperties not allowed) —
+      # verified against the values.schema.json, not guessed. A hostPath
+      # persistence item is the supported way to get a host path into the pod.
+      #
+      # QSV VERIFIED working on this N200 (i915, PCI 8086:46D1):
+      #   h264_qsv 1080p 5.35x realtime, hevc_qsv 1080p 2.18x, hevc_qsv 2160p 0.86x
+      # VAAPI does NOT work: the image ships no /usr/lib/x86_64-linux-gnu/dri
+      # driver userspace, so VAAPI reports "No VA display found for device".
+      # Configure Jellyfin for QSV, never VAAPI.
+      dri:
+        enabled: true
+        type: hostPath
+        hostPath: /dev/dri
+        hostPathType: Directory
