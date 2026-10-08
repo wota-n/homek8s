@@ -26,6 +26,13 @@ spec:
     operatorConfig:
       defaultTags:
         - "tag:k8s-operator"
+      # TEMPORARY: debug logging. The operator logs
+      # "updating AdvertiseServices config" and reports success, but never
+      # creates /etc/proxies/serve-config.json, so nothing serves on 443 and
+      # tailscaled listens only on its WireGuard port. There is no error to
+      # explain it, so the write has to be traced. Drop back to "info" once
+      # this is resolved.
+      logging: "debug"
       image:
         repository: ghcr.io/tailscale/k8s-operator
         # Chart version is 1.102.4; the IMAGE tag is v1.102.4 (leading v).
