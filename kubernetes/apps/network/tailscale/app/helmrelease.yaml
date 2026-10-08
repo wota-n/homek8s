@@ -43,8 +43,16 @@ spec:
     proxyConfig:
       image:
         repository: ghcr.io/tailscale/tailscale
-        # Same leading-v convention as the operator image.
-        tag: "v1.102.4"
+        # NEWER than the operator on purpose. k8s-operator has no v1.102.5
+        # (404) so it is pinned at v1.102.4, but the proxy client has one, and
+        # that client-side fix is what makes the operator's serve config
+        # actually load: at v1.102.4 the operator wrote AdvertiseServices but no
+        # serve-config, and both proxies logged
+        #   "serve proxy: no serve config at /etc/proxies/serve-config.json"
+        # while `tailscale serve status` said "No serve config" — with no error
+        # logged by the operator. Mixed operator/proxy versions are supported;
+        # a client AHEAD of the operator is the working direction here.
+        tag: "v1.102.5"
       defaultTags: "tag:k8s"
 
     # We reach the cluster over the LAN, not through the public api endpoint.
