@@ -1,0 +1,59 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: qbittorrent
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: qbittorrent
+  interval: 1h
+  values:
+    controllers:
+      qbittorrent:
+        strategy: Recreate
+        containers:
+          app:
+            image:
+              repository: docker.io/linuxserver/qbittorrent
+              tag: 5.1.2
+            env:
+              PUID: "1000"
+              PGID: "1000"
+              # Non-standard WebUI port: 8080 collides with nothing today, but
+              # keeping it off the well-known default costs nothing.
+              WEBUI_PORT: "8080"
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        # Matches Sonarr/Radarr so hardlinks from /data/downloads into
+        # /data/media work. Different uids across the stack would break this.
+        fsGroup: 1000
+    service:
+      app:
+        ports:
+          http:
+            port: 8080
+    # No ingress yet, deliberately. qBittorrent's WebUI ships with a random
+    # temporary password printed to the container log, and until that is
+    # changed there is nothing worth exposing. The ClusterIP Service is
+    # cluster-internal, so it is not reachable from the LAN in this state.
+    # When you want the WebUI, expose it over Tailscale (NOT envoy-external).
+    ingress:
+      main:
+        enabled: false
+    persistence:
+      config:
+        enabled: true
+        type: persistentVolumeClaim
+        storageClass: local-path
+        accessMode: ReadWriteOnce
+        size: 5Gi
+      media:
+        enabled: true
+        type: persistentVolumeClaim
+        existingClaim: media-data
+        globalMounts:
+          - path: /data
