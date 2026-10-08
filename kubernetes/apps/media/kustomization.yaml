@@ -10,3 +10,4 @@ resources:
   - ./namespace.yaml
   - ./storage/ks.yaml
   - ./prowlarr/ks.yaml
+  - ./sonarr/ks.yaml
