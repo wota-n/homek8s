@@ -33,4 +33,13 @@ spec:
         number: 8096
   tls:
     - hosts:
-        - jellyfin
+        # MUST be a hostname the proxy can actually claim a certificate for.
+        # The operator derives the allowed cert domains from the ProxyGroup
+        # (`ingress-<n>`) plus the annotated Service name — for the previous
+        # LoadBalancer approach that was `media-jellyfin` (namespace-service).
+        # Asking for bare `jellyfin` yields:
+        #   invalid domain "jellyfin.tail6657ce.ts.net"; must be one of
+        #   ["ingress-0.tail6657ce.ts.net" "media-jellyfin.tail6657ce.ts.net"]
+        # and no certificate is ever issued, so the serve handler exists but
+        # nothing answers on 443.
+        - media-jellyfin
