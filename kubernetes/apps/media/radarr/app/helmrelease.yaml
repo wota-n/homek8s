@@ -17,133 +17,26 @@ spec:
             image:
               repository: docker.io/linuxserver/radarr
               tag: 5.14.0
+            # Talos cannot fix. Radarr 5.14.0's s6 run script hardcodes
+            # `s6-setuidgid abc`, which calls setgroups(); Talos denies that
+            # syscall, the service dies with exitcode 111, and nothing binds
+            # 7878. Sonarr/Prowlarr/qBittorrent ship a run script that BRANCHES
+            # on LSIO_NON_ROOT_USER and skips the group switch — Radarr's does
+            # not, so no env var can save it.
+            # Proven in-cluster: running the binary directly as the container
+            # user returns {"status":"OK"} on /ping, so the app and volume are
+            # fine and only the s6 wrapper is broken. Run it as uid 1000 via
+            # runAsUser + PUID/PGID, which is exactly what the working apps do.
+            command:
+              - /bin/sh
+              - -c
+              - exec /app/radarr/bin/Radarr -nobrowser -data=/config
             env:
               PUID: "1000"
               PGID: "1000"
             envFrom:
               - secretRef:
                   name: radarr
-            # The *_AUTH__* env vars alone are NOT sufficient on their own. The
-            # *arrs only honour them while bootstrapping a FRESH install; once the
-            # UI has written config.xml the USERNAME/PASSWORD overrides stop
-            # applying. Observed directly with all five keys present in the
-            # container: Prowlarr stored <AuthenticationMethod>forms</...> but no
-            # <Username> and no <Password>, so the login page appeared and NO
-            # password was ever accepted.
-            #
-            # This hook rewrites config.xml at every start so Bitwarden stays
-            # authoritative, and revives a UI-side password change on the next
-            # pod start.
-            #
-            # The script is inlined as a literal block rather than shipped via a
-            # ConfigMap because app-template 4.4.0 supports neither extra volumes
-            # nor ConfigMap mounts - the string "volumes" does not appear anywhere
-            # in its values.schema.json, so a mounted script is not expressible.
-            #
-            # Credentials are read from the container's own env (injected by
-            # envFrom), never from argv. Exits 0 when the Bitwarden keys are
-            # absent, which matters: a FAILING postStart hook blocks the
-            # container from starting at all.
-            lifecycle:
-              postStart:
-                exec:
-                  command:
-                    - /bin/sh
-                    - -c
-                    - |
-                      set -eu
-                      CONFIG=/config/config.xml
-                      APP_UPPER=RADARR
-
-                      getenv_or() { printenv "$1" 2>/dev/null || printf '%s' ''; }
-
-                      ENABLED="$(getenv_or "${APP_UPPER}__AUTH__ENABLED")"
-                      METHOD="$(getenv_or "${APP_UPPER}__AUTH__METHOD")"
-                      REQUIRED="$(getenv_or "${APP_UPPER}__AUTH__REQUIRED")"
-                      USERNAME="$(getenv_or "${APP_UPPER}__AUTH__USERNAME")"
-                      PASSWORD="$(getenv_or "${APP_UPPER}__AUTH__PASSWORD")"
-
-                      # Absent keys are the normal pre-Bitwarden state and must not be
-                      # fatal: a failing postStart hook blocks the container entirely.
-                      if [ -z "$USERNAME" ] || [ -z "$PASSWORD" ]; then
-                        echo "auth-inject: credentials absent from env; config.xml untouched"
-                        exit 0
-                      fi
-                      [ -f "$CONFIG" ] || { echo "auth-inject: $CONFIG missing; skipped"; exit 0; }
-
-                      TMP="${CONFIG}.inject.$$"
-                      cp "$CONFIG" "$TMP"
-
-                      # Escape XML metacharacters so a password containing & < > or "
-                      # cannot corrupt the document.
-                      esc() {
-                        printf '%s' "$1" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' -e 's/"/\&quot;/g'
-                      }
-
-                      E_ENABLED="$(esc "${ENABLED:-true}")"
-                      E_METHOD="$(printf '%s' "${METHOD:-Forms}" | tr 'A-Z' 'a-z')"
-                      E_REQUIRED="$(esc "${REQUIRED:-ForLocalAddresses}")"
-                      E_USER="$(esc "$USERNAME")"
-                      E_PASS="$(esc "$PASSWORD")"
-
-                      set_elem() {
-                        tag="$1"; val="$2"; out="${TMP}.out"
-                        if grep -q "<${tag}>" "$TMP"; then
-                          sed "s|<${tag}>[^<]*</${tag}>|<${tag}>${val}</${tag}>|" "$TMP" > "$out"
-                        else
-                          sed "s|</Config>|  <${tag}>${val}</${tag}>\n</Config>|" "$TMP" > "$out"
-                        fi
-                        mv "$out" "$TMP"
-                      }
-
-                      set_elem AuthenticationEnabled  "$E_ENABLED"
-                      set_elem AuthenticationMethod  "$E_METHOD"
-                      set_elem AuthenticationRequired "$E_REQUIRED"
-
-                      if grep -q "<Username>" "$TMP"; then
-                        # Credentials already exist (UI-written) - overwrite them.
-                        sed "s|<Username>[^<]*</Username>|<Username>${E_USER}</Username>|" "$TMP" > "${TMP}.out"
-                        mv "${TMP}.out" "$TMP"
-                      else
-                        # No auth block yet - build one. Emitted line by line then
-                        # spliced, because busybox sed cannot insert real newlines.
-                        {
-                          printf '%s\n' '  <Password>'
-                          printf '%s\n' '    <Authentication>'
-                          printf '      <Username>%s</Username>\n' "$E_USER"
-                          printf '      <Password>%s</Password>\n' "$E_PASS"
-                          printf '%s\n' '    </Authentication>'
-                          printf '%s\n' '  </Password>'
-                          printf '%s\n' '</Config>'
-                        } > "${TMP}.block"
-                        sed '/<\/Config>/,$d' "$TMP" > "${TMP}.out"
-                        cat "${TMP}.block" >> "${TMP}.out"
-                        mv "${TMP}.out" "$TMP"
-                        rm -f "${TMP}.block"
-                      fi
-
-                      # Replace only the FIRST single-line <Password> element: that is
-                      # the secret inside the auth block, not the block itself. awk
-                      # rather than sed because the /1 flag is a GNU extension that
-                      # busybox rejects.
-                      awk -v pass="$E_PASS" '
-                        !done && /<Password>[^<]*<\/Password>/ {
-                          sub(/<Password>[^<]*<\/Password>/, "<Password>" pass "</Password>")
-                          done=1
-                        }
-                        { print }
-                      ' "$TMP" > "${TMP}.out"
-                      mv "${TMP}.out" "$TMP"
-
-                      # Only replace the live file when something changed, so repeated
-                      # hook runs do not churn mtime.
-                      if cmp -s "$TMP" "$CONFIG"; then
-                        echo "auth-inject: already correct; no change"
-                      else
-                        cp "$TMP" "$CONFIG"
-                        echo "auth-inject: credentials injected into config.xml"
-                      fi
-                      rm -f "$TMP" "${TMP}.out"
     defaultPodOptions:
       securityContext:
         runAsNonRoot: true
@@ -165,3 +58,10 @@ spec:
         storageClass: local-path
         accessMode: ReadWriteOnce
         size: 1Gi
+      # Same claim as Sonarr — same uid, same filesystem, hardlinks intact.
+      media:
+        enabled: true
+        type: persistentVolumeClaim
+        existingClaim: media-data
+        globalMounts:
+          - path: /data
