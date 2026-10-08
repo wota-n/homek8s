@@ -27,6 +27,14 @@ spec:
             securityContext:
               runAsUser: 1000
               runAsGroup: 1000
+              # QSV needs this. Proven in-cluster with two throwaway pods at the
+              # SAME uid 1000: without privileged, init_hw_device qsv fails
+              # "Generic error in an external library"; with it, h264_qsv runs
+              # 10.7x realtime. So it is a capability the i915 render node
+              # requires, NOT a uid/permission problem — renderD128 is already
+              # crw-rw-rw-. Scoped to exactly this one container; nothing else
+              # in the stack gets it.
+              privileged: true
     defaultPodOptions:
       securityContext:
         runAsNonRoot: true
