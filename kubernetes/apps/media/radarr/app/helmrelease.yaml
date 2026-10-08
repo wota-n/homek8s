@@ -20,6 +20,16 @@ spec:
             env:
               PUID: "1000"
               PGID: "1000"
+              # REQUIRED on Talos. Radarr's s6 run script is:
+              #   exec s6-setuidgid abc /app/radarr/bin/Radarr
+              # unconditionally — unlike Sonarr's, which has an
+              # LSIO_NON_ROOT_USER branch. s6-setuidgid calls setgroups(),
+              # which Talos denies, so the service loops forever on
+              # "unable to set supplementary group list" and Radarr never
+              # starts. The pod still reports READY because the chart defines
+              # no probe. Setting this takes the non-root path, and the app
+              # runs as the container's own uid (1000) via PUID/PGID.
+              LSIO_NON_ROOT_USER: "true"
             envFrom:
               - secretRef:
                   name: radarr
