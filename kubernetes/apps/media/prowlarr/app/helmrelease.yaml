@@ -1,0 +1,49 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: prowlarr
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: prowlarr
+  interval: 1h
+  values:
+    controllers:
+      prowlarr:
+        strategy: Recreate
+        containers:
+          app:
+            image:
+              repository: docker.io/linuxserver/prowlarr
+              tag: 2.6.5
+            env:
+              PUID: "1000"
+              PGID: "1000"
+              # TZ deliberately unset -> containers run UTC. *arr schedules
+              # internally in UTC anyway; set it here if you want log timestamps
+              # in local time.
+            envFrom:
+              - secretRef:
+                  name: prowlarr
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+    service:
+      app:
+        ports:
+          http:
+            port: 9696
+    ingress:
+      main:
+        enabled: false
+    persistence:
+      config:
+        enabled: true
+        type: persistentVolumeClaim
+        storageClass: local-path
+        accessMode: ReadWriteOnce
+        size: 1Gi

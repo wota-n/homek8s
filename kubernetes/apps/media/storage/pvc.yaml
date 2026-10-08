@@ -1,0 +1,17 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: media-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      # NOTE: local-path enforces NO quota. This is a label, not a cap. The
+      # real guard against filling the 912 GB NVMe is each *arr's
+      # "minimum free space before import" setting — set that to ~150 GB.
+      # With one claim mounted at /data in every app, hardlinks between the
+      # download folder and the media folder work (same filesystem).
+      storage: 500Gi

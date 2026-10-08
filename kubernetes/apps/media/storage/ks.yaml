@@ -1,0 +1,23 @@
+---
+# The shared media volume. Deliberately its OWN Kustomization, not part of any
+# app's dir.
+#
+# WHY: reclaimPolicy on local-path is Delete, and these Kustomizations prune.
+# If this PVC lived inside an app dir, `git rm -r` on that app would delete the
+# claim — and with it every downloaded episode. Keeping it separate means the
+# apps can be rebuilt, deleted, or renamed without ever touching the data.
+# Treat kubernetes/apps/media/storage/ as load-bearing: DO NOT delete it.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: media-storage
+spec:
+  interval: 1h
+  path: ./kubernetes/apps/media/storage
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  targetNamespace: media
+  wait: true
