@@ -1,0 +1,22 @@
+---
+# Backend Service for the Tailscale Ingress (tsingress.yaml).
+#
+# Kept separate from the chart's own `app` Service on purpose: the operator's
+# Ingress reconciler targets `spec.defaultBackend.service`, and a hand-written
+# Service avoids any coupling to how app-template names its own. Both point at
+# the same pods via the same selector labels.
+apiVersion: v1
+kind: Service
+metadata:
+  name: jellyfin-tailscale
+  labels:
+    app.kubernetes.io/name: jellyfin
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: jellyfin
+  ports:
+    - name: http
+      port: 8096
+      targetPort: 8096
+      protocol: TCP

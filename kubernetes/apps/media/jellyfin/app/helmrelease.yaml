@@ -43,16 +43,16 @@ spec:
         fsGroup: 1000
     service:
       app:
-        # Annotated for Tailscale ingress. This is the ONLY exposure Jellyfin
-        # gets: NOT envoy-external. Streaming video through Cloudflare Tunnel
-        # violates their CDN terms of service (the substance of the retired
-        # "Section 2.8", now in the Service-Specific Terms CDN entry, and it
-        # covers Tunnel traffic).
-        annotations:
-          tailscale.com/proxy-group: ingress
-          tailscale.com/tls-hostname: jellyfin
-        type: LoadBalancer
-        loadBalancerClass: tailscale
+        # Plain ClusterIP. Tailscale exposure is handled by the `Ingress` in
+        # tsingress.yaml, which terminates TLS and — unlike the LoadBalancer
+        # approach — has its serve config written by the operator, so it
+        # survives restarts.
+        #
+        # Deliberately NOT envoy-external either: streaming video through
+        # Cloudflare Tunnel violates their CDN terms of service (the substance
+        # of the retired "Section 2.8", now in the Service-Specific Terms CDN
+        # entry, and it covers Tunnel traffic).
+        type: ClusterIP
         ports:
           http:
             port: 8096
