@@ -17,19 +17,23 @@ spec:
             image:
               repository: docker.io/linuxserver/radarr
               tag: 5.14.0
+            # Talos cannot fix. Radarr 5.14.0's s6 run script hardcodes
+            # `s6-setuidgid abc`, which calls setgroups(); Talos denies that
+            # syscall, the service dies with exitcode 111, and nothing binds
+            # 7878. Sonarr/Prowlarr/qBittorrent ship a run script that BRANCHES
+            # on LSIO_NON_ROOT_USER and skips the group switch — Radarr's does
+            # not, so no env var can save it.
+            # Proven in-cluster: running the binary directly as the container
+            # user returns {"status":"OK"} on /ping, so the app and volume are
+            # fine and only the s6 wrapper is broken. Run it as uid 1000 via
+            # runAsUser + PUID/PGID, which is exactly what the working apps do.
+            command:
+              - /bin/sh
+              - -c
+              - exec /app/radarr/bin/Radarr -nobrowser -data=/config
             env:
               PUID: "1000"
               PGID: "1000"
-              # REQUIRED on Talos. Radarr's s6 run script is:
-              #   exec s6-setuidgid abc /app/radarr/bin/Radarr
-              # unconditionally — unlike Sonarr's, which has an
-              # LSIO_NON_ROOT_USER branch. s6-setuidgid calls setgroups(),
-              # which Talos denies, so the service loops forever on
-              # "unable to set supplementary group list" and Radarr never
-              # starts. The pod still reports READY because the chart defines
-              # no probe. Setting this takes the non-root path, and the app
-              # runs as the container's own uid (1000) via PUID/PGID.
-              LSIO_NON_ROOT_USER: "true"
             envFrom:
               - secretRef:
                   name: radarr
