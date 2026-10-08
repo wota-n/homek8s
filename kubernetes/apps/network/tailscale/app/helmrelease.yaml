@@ -26,13 +26,13 @@ spec:
     operatorConfig:
       defaultTags:
         - "tag:k8s-operator"
-      # TEMPORARY: debug logging. The operator logs
-      # "updating AdvertiseServices config" and reports success, but never
-      # creates /etc/proxies/serve-config.json, so nothing serves on 443 and
-      # tailscaled listens only on its WireGuard port. There is no error to
-      # explain it, so the write has to be traced. Drop back to "info" once
-      # this is resolved.
-      logging: "debug"
+      # Was temporarily "debug" while chasing the serve-config question.
+      # Debug output settled it: the operator logs
+      #   service "svc:media-jellyfin" is already advertised
+      # and manages ONLY the VIP advertisement (AdvertiseServices +
+      # ingress-config.json IPv4Mapping). It never writes serve-config.json —
+      # that is by design for VIP-mode Tailscale Services, not a fault.
+      logging: "info"
       image:
         repository: ghcr.io/tailscale/k8s-operator
         # Chart version is 1.102.4; the IMAGE tag is v1.102.4 (leading v).
