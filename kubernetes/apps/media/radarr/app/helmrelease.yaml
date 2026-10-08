@@ -53,14 +53,15 @@ spec:
                     - |
                       set -eu
                       CONFIG=/config/config.xml
+                      APP_UPPER=RADARR
 
                       getenv_or() { printenv "$1" 2>/dev/null || printf '%s' ''; }
 
-                      ENABLED="$(getenv_or "RADARR__AUTH__ENABLED")"
-                      METHOD="$(getenv_or "RADARR__AUTH__METHOD")"
-                      REQUIRED="$(getenv_or "RADARR__AUTH__REQUIRED")"
-                      USERNAME="$(getenv_or "RADARR__AUTH__USERNAME")"
-                      PASSWORD="$(getenv_or "RADARR__AUTH__PASSWORD")"
+                      ENABLED="$(getenv_or "${APP_UPPER}__AUTH__ENABLED")"
+                      METHOD="$(getenv_or "${APP_UPPER}__AUTH__METHOD")"
+                      REQUIRED="$(getenv_or "${APP_UPPER}__AUTH__REQUIRED")"
+                      USERNAME="$(getenv_or "${APP_UPPER}__AUTH__USERNAME")"
+                      PASSWORD="$(getenv_or "${APP_UPPER}__AUTH__PASSWORD")"
 
                       # Absent keys are the normal pre-Bitwarden state and must not be
                       # fatal: a failing postStart hook blocks the container entirely.
