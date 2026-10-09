@@ -1,0 +1,12 @@
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmChart
+metadata:
+  name: pihole
+spec:
+  interval: 1h
+  chart: pihole
+  version: 2.38.0
+  sourceRef:
+    kind: HelmRepository
+    name: pihole
