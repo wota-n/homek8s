@@ -1,0 +1,52 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: pihole
+spec:
+  chartRef:
+    kind: HelmChart
+    name: pihole
+  interval: 1h
+  values:
+    # Pin the DNS service address; reserve/exclude it from the router's DHCP pool.
+    serviceDns:
+      type: LoadBalancer
+      mixedService: true
+      port: 53
+      externalTrafficPolicy: Local
+      annotations:
+        lbipam.cilium.io/ips: "192.168.1.166"
+    serviceDhcp:
+      enabled: false
+    serviceWeb:
+      type: ClusterIP
+      http:
+        enabled: true
+        port: 80
+      https:
+        enabled: false
+    persistentVolumeClaim:
+      enabled: true
+      storageClass: local-path
+      accessModes:
+        - ReadWriteOnce
+      size: 2Gi
+    admin:
+      existingSecret: pihole-admin
+      passwordKey: password
+    DNS1: "1.1.1.1"
+    DNS2: "1.0.0.1"
+    # Forward the internal application zone to k8s-gateway, which synthesizes
+    # LAN answers from HTTPRoutes; external lookups use the upstreams above.
+    dnsmasq:
+      upstreamServers:
+        - server=/${SECRET_DOMAIN}/192.168.1.161
+    extraEnvVars:
+      FTLCONF_dns_listeningMode: all
+    resources:
+      requests:
+        cpu: 50m
+        memory: 256Mi
+      limits:
+        memory: 512Mi
