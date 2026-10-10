@@ -1,0 +1,12 @@
+---
+# The upstream chart is NOT published as an OCI artifact — ghcr.io/project-zot/*
+# denies anonymous pulls (verified: token endpoint returns DENIED), so the chart
+# comes from the project's HTTP Helm repo instead, like pihole/tailscale do.
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/source.toolkit.fluxcd.io/helmrepository_v1.json
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: zot
+spec:
+  interval: 1h
+  url: https://zotregistry.dev/helm-charts

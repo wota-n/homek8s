@@ -1,0 +1,14 @@
+---
+# Chart pinned to 0.1.128 (appVersion v2.1.22). Bump both together.
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/source.toolkit.fluxcd.io/helmchart_v1.json
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmChart
+metadata:
+  name: zot
+spec:
+  interval: 1h
+  chart: zot
+  version: 0.1.128
+  sourceRef:
+    kind: HelmRepository
+    name: zot
