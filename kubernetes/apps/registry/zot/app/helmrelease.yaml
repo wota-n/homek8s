@@ -1,0 +1,86 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: zot
+spec:
+  chartRef:
+    kind: HelmChart
+    name: zot
+  interval: 1h
+  values:
+    # Image tag pinned to the chart's appVersion (verified present in ghcr.io/project-zot/zot).
+    image:
+      repository: ghcr.io/project-zot/zot
+      tag: "v2.1.22"
+      pullPolicy: IfNotPresent
+
+    # ClusterIP only — the LAN path in is the HTTPRoute beside this file
+    # (envoy-internal, HTTPS on the wildcard cert). Nothing is NodePort/LoadBalancer.
+    service:
+      type: ClusterIP
+      port: 5000
+
+    ingress:
+      enabled: false
+    httproute:
+      enabled: false
+
+    # Images live on the dedicated NVMe via local-path. The request is a label, not
+    # a quota — the registry has no size ceiling of its own, so watch the volume.
+    persistence: true
+    pvc:
+      create: true
+      accessModes:
+        - ReadWriteOnce
+      storage: 100Gi
+      storageClassName: local-path
+
+    # config.json carries no secret (only the PATH of the htpasswd file), so it
+    # ships in a ConfigMap. mountConfig must stay true for configFiles to be used.
+    mountConfig: true
+    configFiles:
+      config.json: |-
+        {
+          "storage": {
+            "rootDirectory": "/var/lib/registry",
+            "dedupe": true,
+            "gc": true,
+            "gcDelay": "1h",
+            "gcInterval": "24h"
+          },
+          "http": {
+            "address": "0.0.0.0",
+            "port": "5000",
+            "readTimeout": "60s",
+            "writeTimeout": "60s",
+            "realm": "zot registry",
+            "compat": ["docker2s2"],
+            "auth": {
+              "htpasswd": { "path": "/secret/htpasswd" }
+            }
+          },
+          "log": { "level": "info" }
+        }
+
+    # htpasswd file = the credential. It is NEVER a chart value (that would put it
+    # in this public repo) — the ExternalSecret writes Secret 'zot-auth', key
+    # 'htpasswd', from Bitwarden key ZOT_HTPASSWD, and it lands at /secret/htpasswd.
+    externalSecrets:
+      - secretName: zot-auth
+        mountPath: /secret
+
+    # Health probes hit /livez, /readyz, /startupz, which zot registers on the root
+    # router BEFORE the auth middleware — so no authHeader is needed here.
+    startupProbe:
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      failureThreshold: 30
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        memory: 2Gi

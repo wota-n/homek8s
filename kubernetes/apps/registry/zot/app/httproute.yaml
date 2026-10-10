@@ -1,0 +1,23 @@
+---
+# LAN-only access to the registry through the internal Envoy gateway, on the wildcard
+# Let's Encrypt cert (*.${SECRET_DOMAIN}). external-dns only watches envoy-external, so
+# this attaches NO public Cloudflare record — the name resolves only via k8s-gateway
+# (CoreDNS) on the LAN.
+#
+# docker/podman push to https://registry.${SECRET_DOMAIN} with no client config.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: zot
+spec:
+  hostnames: ["registry.${SECRET_DOMAIN}"]
+  parentRefs:
+    - name: envoy-internal
+      namespace: network
+      sectionName: https
+  rules:
+    - matches:
+        - path: { type: PathPrefix, value: / }
+      backendRefs:
+        - name: zot
+          port: 5000
