@@ -52,6 +52,34 @@ spec:
           - name: log
             configBlock: |-
               class error
+      # In-cluster resolution of the LAN-only app zone.
+      #
+      # The `.` block above forwards everything it does not know to the node's
+      # resolvers, and those know nothing about *.${SECRET_DOMAIN}: by design those
+      # names have no public record, so every in-cluster client got NXDOMAIN for
+      # registry./gitlab.${SECRET_DOMAIN}. That silently breaks anything running INSIDE
+      # the cluster that talks to an app by its real hostname — CI job pods pushing to
+      # the zot registry, and the GitLab runner registering against
+      # https://gitlab.${SECRET_DOMAIN}.
+      #
+      # k8s-gateway is already this zone's resolver on the LAN: it watches HTTPRoute
+      # and answers each hostname with the matching gateway IP. Pointing the cluster
+      # resolver at it fixes every current and future LAN-only app in one place rather
+      # than one hosts entry per app. UDP only — the k8s-gateway Service publishes no
+      # TCP/53, so `use_tcp` must stay off here or every query fails.
+      - zones:
+          - zone: ${SECRET_DOMAIN}
+        port: 53
+        plugins:
+          - name: errors
+          - name: forward
+            parameters: . 192.168.1.161
+          - name: cache
+            configBlock: |-
+              prefetch 20
+              serve_stale
+          - name: reload
+          - name: loadbalance
     affinity:
       nodeAffinity:
         requiredDuringSchedulingIgnoredDuringExecution:

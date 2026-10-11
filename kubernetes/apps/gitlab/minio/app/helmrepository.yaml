@@ -1,0 +1,20 @@
+---
+# MinIO supplies GitLab's object storage: uploads, artifacts, LFS objects and packages.
+#
+# This app exists because chart 10.0 removed the bundled MinIO AND removed the shared
+# PersistentVolumeClaim option. With object storage disabled, the rendered
+# webservice Deployment mounts `shared-upload-directory` as an **emptyDir** (verified in
+# `helm template` output), so every upload and every CI artifact is lost the moment the
+# pod is replaced. Since CI/CD is the feature being deployed, that would have made it
+# quietly non-durable.
+#
+# Chart is anonymously pullable from charts.min.io (verified: `helm search repo
+# minio/minio` returns 5.4.0).
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/source.toolkit.fluxcd.io/helmrepository_v1.json
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: minio
+spec:
+  interval: 1h
+  url: https://charts.min.io

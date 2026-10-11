@@ -1,0 +1,24 @@
+---
+# CloudNativePG operator. Chart reachable anonymously (verified: `helm show chart
+# oci://ghcr.io/cloudnative-pg/charts/cloudnative-pg` returns 0.29.1 / appVersion 1.30.1).
+#
+# Why this exists at all: GitLab chart 10.x REMOVED the bundled PostgreSQL/Redis/MinIO
+# subcharts and the chart REFUSES to render without an external database
+# (`_checkConfig_postgresql.tpl`: "Since chart v10.0.0, external PostgreSQL became
+# required"). Upstream's own recommendation for the replacement is CloudNativePG.
+#
+# The operator is cluster-scoped and installs its CRDs, so it must be applied before
+# cluster.yaml. Flux applies in kustomization order, and operator.yaml is listed first.
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/source.toolkit.fluxcd.io/ocirepository_v1.json
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: cloudnative-pg
+spec:
+  interval: 1h
+  layerSelector:
+    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+    operation: copy
+  ref:
+    tag: 0.29.1
+  url: oci://ghcr.io/cloudnative-pg/charts/cloudnative-pg

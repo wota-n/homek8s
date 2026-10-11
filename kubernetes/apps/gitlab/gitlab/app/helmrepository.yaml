@@ -1,0 +1,15 @@
+---
+# The GitLab chart is NOT published as an anonymously-pullable OCI artifact:
+# `https://registry.gitlab.com/v2/charts/gitlab/manifests/...` returns 401 (the token
+# endpoint denies anonymous pulls), so an OCIRepository can never work here. The
+# project's HTTP Helm repo serves the same chart anonymously — verified 200 on
+# index.yaml plus a successful `helm search repo gitlab/gitlab`. Same reason and same
+# fallback as zot, pihole and tailscale in this repo.
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/source.toolkit.fluxcd.io/helmrepository_v1.json
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: gitlab
+spec:
+  interval: 1h
+  url: https://charts.gitlab.io

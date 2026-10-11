@@ -1,0 +1,73 @@
+---
+# MinIO — the S3-compatible object store GitLab writes artifacts, uploads, LFS objects
+# and packages to.
+#
+# WHY THIS APP EXISTS AT ALL: GitLab chart 10.x (GitLab 19) removed the bundled MinIO
+# AND removed the shared-PVC option. With object storage disabled the webservice
+# Deployment mounts `shared-upload-directory` as an **emptyDir** (verified in the
+# chart's webservice deployment template, not inferred), so every CI artifact and every
+# upload would vanish the moment the pod was replaced. Since CI/CD is the feature this
+# deployment exists for, that would have been quietly non-durable — hence a real store.
+#
+# Credentials are NEVER in this repo: the chart's own Secret template is bypassed with
+# `existingSecret` below, and the keys it reads — `rootUser` / `rootPassword` — come
+# from the ExternalSecret in this directory (Bitwarden keys MINIO_ROOT_USER /
+# MINIO_ROOT_PASSWORD). Those exact key names are fixed by the chart, not chosen here.
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: gitlab-minio
+spec:
+  interval: 1h
+  chartRef:
+    kind: HelmChart
+    name: minio
+  values:
+    # Single node — NOT the chart's `distributed` default, which wants 4+ pods and a
+    # 4-drive layout this cluster does not have.
+    mode: standalone
+
+    image:
+      repository: quay.io/minio/minio
+      tag: RELEASE.2024-12-18T13-15-44Z
+      pullPolicy: IfNotPresent
+
+    existingSecret: gitlab-minio
+
+    # GitLab will not create buckets; it expects them to exist. The chart's
+    # makeBucketJob creates these right after the server comes up. The four names must
+    # match global.appConfig.*.bucket in the GitLab HelmRelease; the fifth is the
+    # runner's distributed build cache (see gitlab-runner.runners.cache there).
+    buckets:
+      - name: gitlab-artifacts
+      - name: git-lfs
+      - name: gitlab-uploads
+      - name: gitlab-packages
+      - name: gitlab-runner-cache
+
+    # ClusterIP only. GitLab reaches it in-cluster at
+    # gitlab-minio.gitlab.svc.cluster.local:9000 — no ingress, no LoadBalancer, and
+    # therefore no LAN or internet exposure for the object store itself.
+    service:
+      type: ClusterIP
+      port: "9000"
+    ingress:
+      enabled: false
+    consoleIngress:
+      enabled: false
+
+    persistence:
+      enabled: true
+      storageClass: local-path
+      accessMode: ReadWriteOnce
+      size: 20Gi
+
+    # The chart's default is requests.memory: 16Gi, which is most of this node. Set a
+    # sane request; the limit is the real guard.
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        memory: 1Gi

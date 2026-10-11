@@ -1,0 +1,21 @@
+---
+# Valkey (Redis-compatible) for GitLab. Chart reachable anonymously (verified:
+# `helm show chart oci://ghcr.io/valkey-io/valkey-helm/valkey` returns 0.12.0).
+#
+# Why Valkey and not the chart's old bundled Redis: GitLab chart 10.0 REMOVED the
+# bundled PostgreSQL/Redis/MinIO subcharts, and `_checkConfig_redis.tpl` fails the
+# render outright unless `global.redis.host` is set ("Since chart v10.0.0, external
+# Redis became required"). Upstream lists Valkey as the supported replacement.
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/source.toolkit.fluxcd.io/ocirepository_v1.json
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: valkey
+spec:
+  interval: 1h
+  layerSelector:
+    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+    operation: copy
+  ref:
+    tag: 0.12.0
+  url: oci://ghcr.io/valkey-io/valkey-helm/valkey

@@ -1,0 +1,57 @@
+---
+# PostgreSQL 17 for GitLab. GitLab 19 sets MINIMUM_POSTGRES_VERSION = 17, so 16 is
+# not an option — this is a major-version floor, not a preference.
+#
+# Password handling: NO credential is committed here. CNPG generates the superuser and
+# app-user passwords on first bootstrap and writes them to Secret `gitlab-postgres-app`
+# (key `password`) and `gitlab-postgres-superuser` (key `password`). The GitLab
+# HelmRelease points at exactly that Secret, so nothing ever lands in this public repo
+# and there is no secret to rotate in two places.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: gitlab-postgres
+spec:
+  instances: 1
+
+  imageName: ghcr.io/cloudnative-pg/postgresql:17.6
+
+  storage:
+    size: 20Gi
+    storageClass: local-path
+
+  # GitLab's Rails schema requires these extensions to exist before migrations run.
+  # Without pg_trgm and btree_gist the migration job fails at db:migrate, which
+  # presents as a migrations pod crash-looping while every other pod looks fine.
+  bootstrap:
+    initdb:
+      database: gitlabhq_production
+      owner: gitlab
+      postInitSQL:
+        - CREATE EXTENSION IF NOT EXISTS pg_trgm;
+        - CREATE EXTENSION IF NOT EXISTS btree_gist;
+        - CREATE EXTENSION IF NOT EXISTS plpgsql;
+        - CREATE EXTENSION IF NOT EXISTS amcheck;
+        - CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
+
+  # GitLab opens many concurrent connections (puma + sidekiq + migrations in
+  # parallel). The default 100 is the usual cause of
+  # "too many connections for superuser" during the first migration run.
+  postgresql:
+    parameters:
+      max_connections: "300"
+      shared_buffers: 512MB
+      work_mem: 16MB
+      maintenance_work_mem: 128MB
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 1Gi
+    limits:
+      memory: 2Gi
+
+  monitoring:
+    # No Prometheus in this cluster is scraping CNPG; the default would only add
+    # configmaps nobody reads.
+    enablePodMonitor: false
