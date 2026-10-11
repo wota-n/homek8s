@@ -39,6 +39,21 @@ spec:
       namespace: gitlab
     - name: gitlab-minio
       namespace: gitlab
+  # helm-controller's default install/upgrade timeout is 5m and this chart cannot meet
+  # it on one node: shared-secrets, then the configmap and migrations jobs, then
+  # webservice/sidekiq/gitaly/shell must ALL report ready inside the window. Exceeding
+  # it does not merely retry — the install is recorded as a FAILED version, the follow-up
+  # upgrade fails the same way, and remediation then cannot roll back a release whose
+  # every version failed (`missing target release for rollback`). That wedges the release
+  # permanently and it has to be cleared by hand (delete the failed `owner=helm` secrets,
+  # reinstall from this file, let Flux adopt it) — which is exactly what happened to
+  # gitlab-valkey on 2026-10-11, where the ESO Secret for the ACL password arrived late
+  # and the pod sat in CreateContainerConfigError past the 5m mark.
+  # Having all three dependencies Ready is NOT enough to make 5m sufficient.
+  install:
+    timeout: 30m
+  upgrade:
+    timeout: 30m
   values:
     global:
       # CE, not the chart's default `ee`: this is a personal instance and EE without a
