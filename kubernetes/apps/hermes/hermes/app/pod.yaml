@@ -53,6 +53,14 @@ spec:
         # envFrom below) are mandatory to serve at all.
         - name: HERMES_DASHBOARD
           value: "1"
+        # OpenCode Zen base URL override, pointing at the zen-shim sidecar below.
+        # This image's Hermes build (v0.21.5) applies model.base_url to
+        # model-listing calls but NOT to the chat-completion POST, which went
+        # straight to opencode.ai and got the free-tier 403. The provider's
+        # declared override env var is honoured on both paths, so the routing
+        # lives here rather than in config.yaml alone.
+        - name: OPENCODE_ZEN_BASE_URL
+          value: http://127.0.0.1:8788/zen/v1
       # Every Bitwarden-provided key (LLM provider API keys, chat bot tokens,
       # dashboard basic-auth credentials, optional API_SERVER_* / TELEGRAM_*
       # ...) is injected as an env var. The image loads /opt/data/.env into
