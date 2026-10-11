@@ -7,3 +7,11 @@ resources:
   - ./pvc.yaml
   - ./pod.yaml
   - ./service.yaml
+# shim.py (the OpenCode Zen free-tier compatibility shim run as a sidecar in the
+# hermes pod) is kept in git and turned into a ConfigMap here. The name gets a
+# content-hash suffix, so editing shim.py changes the Pod's volume reference —
+# that is the signal to delete the Pod so it is recreated with the new script.
+configMapGenerator:
+  - name: hermes-zen-shim
+    files:
+      - shim.py
