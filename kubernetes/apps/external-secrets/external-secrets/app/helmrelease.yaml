@@ -25,6 +25,15 @@ spec:
         - name: tls
           mountPath: /tls
           readOnly: true
+      # The SDK server reads its serving cert at STARTUP only. cert-manager rotates
+      # this CA (and the leaf) on its own schedule; without a restart the pod keeps
+      # serving the OLD leaf while ESO verifies against the NEW ca.crt, and EVERY
+      # ExternalSecret in the cluster fails with:
+      #   tls: failed to verify certificate: x509: certificate signed by unknown authority
+      # That happened on 2026-10-09 and took all 12 ExternalSecrets down silently.
+      # Reloader rolls the pod the moment the mounted Secret changes.
+      podAnnotations:
+        reloader.stakater.com/auto: "true"
     leaderElect: true
     serviceMonitor:
       enabled: true

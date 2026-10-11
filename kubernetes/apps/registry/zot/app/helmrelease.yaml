@@ -71,6 +71,14 @@ spec:
       - secretName: zot-auth
         mountPath: /secret
 
+    # zot parses the htpasswd file ONCE at startup, so rotating the password in
+    # Bitwarden updates the Secret but changes nothing until the pod restarts.
+    # Reloader rolls it automatically — no manual `kubectl delete pod` after a
+    # force-sync. Verify it lands by checking the log for
+    #   "loaded htpasswd file ... users: 1"
+    podAnnotations:
+      reloader.stakater.com/auto: "true"
+
     # Health probes hit /livez, /readyz, /startupz, which zot registers on the root
     # router BEFORE the auth middleware — so no authHeader is needed here.
     startupProbe:
