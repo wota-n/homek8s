@@ -8,7 +8,8 @@ components:
 
 resources:
   - ./namespace.yaml
-  - ./postgres/ks.yaml
+  - ./postgres/operator/ks.yaml
+  - ./postgres/cluster/ks.yaml
   - ./valkey/ks.yaml
   - ./minio/ks.yaml
   - ./gitlab/ks.yaml

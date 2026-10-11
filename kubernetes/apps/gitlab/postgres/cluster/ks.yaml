@@ -1,0 +1,19 @@
+---
+# The PostgreSQL Cluster itself. Split from the operator because the CRD must already
+# exist when this is applied — see the comment in ../operator/ks.yaml.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: gitlab-postgres
+spec:
+  dependsOn:
+    - name: gitlab-postgres-operator
+  interval: 1h
+  path: ./kubernetes/apps/gitlab/postgres/cluster/app
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  targetNamespace: gitlab
+  wait: false
