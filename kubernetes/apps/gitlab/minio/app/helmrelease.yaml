@@ -111,7 +111,7 @@ spec:
       limits:
         memory: 1Gi
 
-  # The chart's statefulset hardcodes its container command as
+  # The chart's Deployment hardcodes its container command as
   #   /usr/bin/docker-entrypoint.sh minio server <pool> -S /etc/minio/certs/ ...
   # That script only exists in MinIO's own (now gated) image. bitnamilegacy/minio
   # has no entrypoint shim and its own /opt/bitnami/scripts/minio/entrypoint.sh
@@ -119,15 +119,20 @@ spec:
   # verbatim fails with `exec: server: not found`. So replace the command with the
   # equivalent direct invocation. The server URL is left OFF, which is what makes
   # this standalone: without an explicit URL minio serves plain /export, and adding
-  # one would flip the chart into distributed mode (16 replicas) — see the poolCount
-  # helper, which only emits a URL for mode != standalone.
+  # one would flip the chart into distributed mode (16 replicas) — the poolCount
+  # helper only emits a URL for mode != standalone.
+  #
+  # Target is a Deployment, NOT a StatefulSet — minio chart 5.4.0 renders a
+  # Deployment even in standalone mode (verified in `helm template` output), and a
+  # mismatched target makes the postRenderer a silent no-op: the release still
+  # installs and the pod crashloops on the original command.
   # Verified live before being written here: this exact command against an emptyDir
   # comes up as "MinIO Object Storage Server / API: http://...:9000".
   postRenderers:
     - kustomize:
         patches:
           - target:
-              kind: StatefulSet
+              kind: Deployment
               name: gitlab-minio
             patch: |-
               - op: replace
