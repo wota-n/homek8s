@@ -168,7 +168,7 @@ spec:
                   - /bin/sh
                   - -c
                   - ln -sf /opt/bitnami/minio-client/bin/mc /usr/bin/mc && exec /bin/sh /config/initialize
-              - op: replace
+              - op: add
                 path: /spec/template/spec/containers/0/securityContext
                 value:
                   runAsUser: 0
@@ -179,8 +179,17 @@ spec:
                   - /bin/sh
                   - -c
                   - ln -sf /opt/bitnami/minio-client/bin/mc /usr/bin/mc && exec /bin/sh /config/add-user
-              - op: replace
+              - op: add
                 path: /spec/template/spec/containers/1/securityContext
                 value:
                   runAsUser: 0
                   runAsGroup: 0
+          # ⚠️ `add`, not `replace`, on the securityContext paths above, and this is not
+          # cosmetic. The Job's containers have NO securityContext at all when
+          # makeBucketJob.securityContext.enabled is false (the default here), and a
+          # JSON6902 `replace` against a path that does not exist fails the WHOLE
+          # patch — so the command fix silently rolls back with it and the job goes
+          # back to "/usr/bin/mc: not found". That is exactly what happened on the
+          # first attempt at this fix: the release installed, reported success, and
+          # the job kept failing on the original command. If you ever see the symlink
+          # fix not take effect, check the op verbs before anything else.
