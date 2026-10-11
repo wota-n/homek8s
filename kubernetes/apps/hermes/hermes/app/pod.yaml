@@ -126,9 +126,15 @@ spec:
       ports:
         - name: zen-shim
           containerPort: 8788
+      # Exec probe, not tcpSocket: the kubelet dials the POD IP, but the shim
+      # binds loopback only (so nothing else in the cluster can reach it and use
+      # the Zen key). Probe it from inside its own network namespace instead.
       readinessProbe:
-        tcpSocket:
-          port: zen-shim
+        exec:
+          command:
+            - /opt/hermes/.venv/bin/python3
+            - -c
+            - import socket;socket.create_connection(('127.0.0.1',8788),3).close()
         periodSeconds: 15
         timeoutSeconds: 5
         failureThreshold: 4
