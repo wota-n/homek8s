@@ -141,3 +141,46 @@ spec:
                   - /bin/sh
                   - -ce
                   - minio server /export -S /etc/minio/certs/ --address :9000 --console-address :9001
+          # The makeBucketJob is the second half of the same image problem. The chart's
+          # /config/initialize script hardcodes `MC="/usr/bin/mc --insecure"`, and
+          # /usr/bin/mc is a path that only ever existed in MinIO's own (gated) image.
+          # In bitnamilegacy/minio the binary lives at
+          # /opt/bitnami/minio-client/bin/mc — on PATH, so anything invoking plain `mc`
+          # works, but this script uses the ABSOLUTE path and dies with
+          #   /config/initialize: 27: /usr/bin/mc: not found
+          # retrying 29 times before the job gives up, which is what a wedged
+          # `2/2 Running` post-job with no buckets in it looks like.
+          #
+          # The fix is a one-line symlink created before the script runs. It has to be
+          # root: the symlink lands in /usr/bin, which is not writable by the image's
+          # uid 1001 (verified — `ln: Permission denied` at 1001, succeeds at 0).
+          # initContainer is NOT an option: containers in a pod have separate
+          # filesystems, so a symlink made there is gone by the time the script runs.
+          # Both make-bucket and make-user get the treatment, since add-user calls the
+          # same absolute path.
+          - target:
+              kind: Job
+              name: gitlab-minio-post-job
+            patch: |-
+              - op: replace
+                path: /spec/template/spec/containers/0/command
+                value:
+                  - /bin/sh
+                  - -c
+                  - ln -sf /opt/bitnami/minio-client/bin/mc /usr/bin/mc && exec /bin/sh /config/initialize
+              - op: replace
+                path: /spec/template/spec/containers/0/securityContext
+                value:
+                  runAsUser: 0
+                  runAsGroup: 0
+              - op: replace
+                path: /spec/template/spec/containers/1/command
+                value:
+                  - /bin/sh
+                  - -c
+                  - ln -sf /opt/bitnami/minio-client/bin/mc /usr/bin/mc && exec /bin/sh /config/add-user
+              - op: replace
+                path: /spec/template/spec/containers/1/securityContext
+                value:
+                  runAsUser: 0
+                  runAsGroup: 0
