@@ -1,0 +1,16 @@
+# The plan named codeberg.org/forgejo-helm/forgejo-helm — that path is dead (404, the
+# org does not exist). The chart is published to Codeberg's package registry instead.
+# Chart pinned to 17.2.0 (appVersion 15.0.9). Bump both together.
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/source.toolkit.fluxcd.io/ocirepository_v1.json
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: forgejo
+spec:
+  interval: 1h
+  layerSelector:
+    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+    operation: copy
+  ref:
+    tag: "17.2.0"
+  url: oci://code.forgejo.org/forgejo-helm/forgejo

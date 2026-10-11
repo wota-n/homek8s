@@ -1,0 +1,73 @@
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: forgejo
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: forgejo
+  interval: 1h
+  values:
+    # ClusterIP only — the LAN path in is the HTTPRoute beside this file
+    # (envoy-internal, HTTPS on the wildcard cert). Nothing is NodePort/LoadBalancer.
+    # SSH also stays ClusterIP-only: the plan is HTTPS git over the gateway, and it
+    # gets exposed deliberately later rather than by default.
+    service:
+      http:
+        type: ClusterIP
+        port: 3000
+
+    ingress:
+      enabled: false
+    httpRoute:
+      enabled: false
+
+    # Rootless image (chart default) — securityContext is only valid with it.
+    image:
+      pullPolicy: IfNotPresent
+
+    # One PVC for /var/lib/forgejo on the dedicated NVMe via local-path. The size is
+    # a LABEL, not a quota: local-path enforces nothing, so watch the volume.
+    persistence:
+      enabled: true
+      create: true
+      size: 20Gi
+      accessModes:
+        - ReadWriteOnce
+      storageClass: local-path
+
+    # Admin password from Bitwarden (Secret forgejo-admin), never a chart value —
+    # this repo is public. Username/password keys come from the ExternalSecret beside
+    # this file. passwordMode keepUpdated so a password rotation reaches the instance.
+    gitea:
+      admin:
+        existingSecret: forgejo-admin
+        passwordMode: keepUpdated
+      config:
+        # Documented production-ready single-pod setting (no external deps).
+        indexer:
+          REPO_INDEXER_ENABLED: true
+        server:
+          # Clone/push URLs must match the hostname the gateway actually serves, or
+          # the UI renders git.example.com links. All three keys are needed: ROOT_URL
+          # alone leaves DOMAIN/PROTOCOL at the chart defaults.
+          ROOT_URL: "https://forgejo.${SECRET_DOMAIN}"
+          DOMAIN: "forgejo.${SECRET_DOMAIN}"
+          PROTOCOL: "https"
+
+    # Forced ROUND-ROBIN rather than the chart's Recreate: SQLite is a single
+    # writer on one RWO claim, and an in-place restart keeps the database open
+    # rather than tearing down the pod between updates.
+    strategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxSurge: 0
+        maxUnavailable: 1
+
+    resources:
+      requests:
+        cpu: 50m
+        memory: 512Mi
+      limits:
+        memory: 2Gi
