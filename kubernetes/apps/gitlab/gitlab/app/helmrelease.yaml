@@ -278,6 +278,16 @@ spec:
         # Single node: no concurrency to exploit with more workers, and each concurrent
         # job is another process competing for the same 4 CPUs.
         concurrency: 10
+        # Pin the replica count to 1 — the chart's own HPA defaults to max 10 and will
+        # scale up on a CPU spike (sidekiq boot itself trips it). This node's CPU
+        # REQUESTS already sit at ~96% of allocatable, so a scaled-up replica cannot be
+        # scheduled at all, and an unschedulable pod under a Deployment keeps that
+        # Deployment unavailable — which is what the HelmRelease's readiness wait is
+        # waiting on, so a transient spike turns into an install/upgrade timeout and,
+        # from there, a wedged release. Observed live on the first install: HPA 1 -> 3,
+        # third pod `0/1 Pending  Insufficient cpu`, install action stalled on it.
+        minReplicas: 1
+        maxReplicas: 1
         resources:
           requests:
             cpu: 200m
