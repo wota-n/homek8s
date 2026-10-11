@@ -49,12 +49,16 @@ spec:
         indexer:
           REPO_INDEXER_ENABLED: true
         server:
-          # Clone/push URLs must match the hostname the gateway actually serves, or
-          # the UI renders git.example.com links. All three keys are needed: ROOT_URL
-          # alone leaves DOMAIN/PROTOCOL at the chart defaults.
+          # ROOT_URL is what the UI shows in clone links; DOMAIN feeds it. Both are
+          # needed — ROOT_URL alone leaves DOMAIN at git.example.com.
           ROOT_URL: "https://forgejo.${SECRET_DOMAIN}"
           DOMAIN: "forgejo.${SECRET_DOMAIN}"
-          PROTOCOL: "https"
+          # PROTOCOL is what the PROCESS listens with, not what the browser uses.
+          # The envoy gateway terminates TLS with the wildcard cert, so Forgejo must
+          # serve plain HTTP — setting https here makes it demand a cert file it does
+          # not have and the pod crash-loops on "Failed to start server: open : no
+          # such file or directory". public URL scheme comes from ROOT_URL above.
+          PROTOCOL: "http"
 
     # Forced ROUND-ROBIN rather than the chart's Recreate: SQLite is a single
     # writer on one RWO claim, and an in-place restart keeps the database open
