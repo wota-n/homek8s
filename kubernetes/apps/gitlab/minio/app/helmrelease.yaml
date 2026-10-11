@@ -28,9 +28,37 @@ spec:
     # 4-drive layout this cluster does not have.
     mode: standalone
 
+    # IMAGE SOURCE — READ THIS BEFORE "UPGRADING" IT BACK.
+    #
+    # MinIO deprecated its public container images. Anonymous pulls of BOTH
+    # quay.io/minio/minio and docker.io/minio/minio now answer 401 UNAUTHORIZED
+    # (verified from this desktop against a control image that pulls fine from the
+    # same registry — nginx on Docker Hub, cilium on quay — so this is upstream
+    # gating, not this cluster's network or a rate limit). The pod symptom is
+    # `ImagePullBackOff ... 401 UNAUTHORIZED`, which looks like a cluster fault and
+    # is not. Every mc image is gated the same way, which is why mcImage below is
+    # pinned to the same mirror: the makeBucketJob cannot use quay.io/minio/mc.
+    #
+    # bitnamilegacy/minio is the same upstream build repackaged by Bitnami —
+    # `minio --version` inside it reports DEVELOPMENT.2024-12-18T13-15-44Z, byte for
+    # byte the release this chart asked for. Two consequences, both handled below:
+    #   1. It ships no /usr/bin/docker-entrypoint.sh, which is what the chart's
+    #      statefulset hardcodes as its command → overridden in postRenderers below.
+    #   2. It runs as uid 1001, not 1000 → securityContext below.
     image:
-      repository: quay.io/minio/minio
-      tag: RELEASE.2024-12-18T13-15-44Z
+      repository: bitnamilegacy/minio
+      tag: 2024.12.18
+      pullPolicy: IfNotPresent
+
+    # The mc client the makeBucketJob runs. The bitnami image carries mc at
+    # /opt/bitnami/minio-client/bin/mc and puts it on PATH, which is all the chart's
+    # /config/initialize script needs — verified by running the image and executing
+    # `mc --version` (DEVELOPMENT.2024-11-21T17-21-54Z, matching the mc release the
+    # chart pins). The job's own command is already `/bin/sh /config/initialize`,
+    # so it bypasses the image entrypoint entirely.
+    mcImage:
+      repository: bitnamilegacy/minio
+      tag: 2024.12.18
       pullPolicy: IfNotPresent
 
     existingSecret: gitlab-minio
@@ -63,6 +91,17 @@ spec:
       accessMode: ReadWriteOnce
       size: 20Gi
 
+    # The chart defaults to uid/gid 1000 because MinIO's own image runs as 1000.
+    # bitnamilegacy/minio runs as 1001, and it opens the data directory before
+    # dropping to any subuid — at 1000 it dies immediately with
+    #   FATAL Unable to initialize backend: Unable to write to the backend
+    # Verified live: identical command at 1001 comes up clean.
+    securityContext:
+      enabled: true
+      runAsUser: 1001
+      runAsGroup: 1001
+      fsGroup: 1001
+
     # The chart's default is requests.memory: 16Gi, which is most of this node. Set a
     # sane request; the limit is the real guard.
     resources:
@@ -71,3 +110,29 @@ spec:
         memory: 256Mi
       limits:
         memory: 1Gi
+
+  # The chart's statefulset hardcodes its container command as
+  #   /usr/bin/docker-entrypoint.sh minio server <pool> -S /etc/minio/certs/ ...
+  # That script only exists in MinIO's own (now gated) image. bitnamilegacy/minio
+  # has no entrypoint shim and its own /opt/bitnami/scripts/minio/entrypoint.sh
+  # expects `minio server` to already be argv[1] — feeding it the chart's command
+  # verbatim fails with `exec: server: not found`. So replace the command with the
+  # equivalent direct invocation. The server URL is left OFF, which is what makes
+  # this standalone: without an explicit URL minio serves plain /export, and adding
+  # one would flip the chart into distributed mode (16 replicas) — see the poolCount
+  # helper, which only emits a URL for mode != standalone.
+  # Verified live before being written here: this exact command against an emptyDir
+  # comes up as "MinIO Object Storage Server / API: http://...:9000".
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              kind: StatefulSet
+              name: gitlab-minio
+            patch: |-
+              - op: replace
+                path: /spec/template/spec/containers/0/command
+                value:
+                  - /bin/sh
+                  - -ce
+                  - minio server /export -S /etc/minio/certs/ --address :9000 --console-address :9001
