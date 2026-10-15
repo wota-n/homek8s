@@ -102,6 +102,46 @@ spec:
       volumeMounts:
         - name: data
           mountPath: /opt/data
+    # OpenCode Zen free-tier shim. Replaces the ConfigMap sidecar that used to
+    # borrow this fat image for an interpreter: this is a purpose-built 55MB
+    # image (python:3.13-alpine, stdlib only, no pip), which also deleted the
+    # `command:` entrypoint override and the ConfigMap delivery dance.
+    #
+    # Binds 0.0.0.0:8788 but is never reachable from another pod: there is no
+    # Service and no port-forward for it, so the advertised address stays
+    # 127.0.0.1:8788 inside the pod. The port is declared only so the kubelet's
+    # own diagnostics name it; declaring it does NOT expose it. The HEALTHCHECK
+    # in the image covers readiness, so no exec probe is needed.
+    #
+    # Source is private (Forgejo repo `homek8s/zen-shim`) and must never land in
+    # this public repo. Image path mirrors that repo name so the mapping is
+    # obvious: registry.${SECRET_DOMAIN}/homek8s/zen-shim.
+    # Pinned by digest, not tag — the tag is mutable, the digest is not.
+    - name: zen-shim
+      image: registry.${SECRET_DOMAIN}/homek8s/zen-shim@sha256:11fcdd6713d89cf93d554670869dfde9c676a2b7774df0fdf11675c1f87c67bd
+      imagePullPolicy: IfNotPresent
+      env:
+        # The same key the Hermes container already receives via envFrom. Read
+        # here as a single secretKeyRef rather than a second envFrom so the
+        # sidecar does not inherit the dashboard credentials.
+        - name: OPENCODE_ZEN_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: hermes
+              key: OPENCODE_ZEN_API_KEY
+      ports:
+        - name: shim
+          containerPort: 8788
+      resources:
+        requests:
+          cpu: 10m
+          memory: 32Mi
+        limits:
+          memory: 128Mi
+  # zot runs htpasswd auth, so an anonymous pull is 401 → ImagePullBackOff.
+  # Sourced from BSM as a base64 dockerconfigjson (NOT the htpasswd line).
+  imagePullSecrets:
+    - name: zot-pull
   volumes:
     - name: data
       persistentVolumeClaim:

@@ -7,3 +7,4 @@ resources:
   - ./pvc.yaml
   - ./pod.yaml
   - ./service.yaml
+  - ./zot-pull-secret.yaml
