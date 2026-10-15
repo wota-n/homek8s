@@ -1,0 +1,37 @@
+---
+# Static /etc/hosts entries for the LAN-only zone, so the KUBELET can pull from
+# the private zot registry.
+#
+# Why this is needed: the kubelet resolves image references with the node's own
+# resolver, not in-cluster DNS, so `registry.<domain>` failed with
+#   lookup registry.<domain> ... no such host
+# and any pod referencing it sat in ImagePullBackOff.
+#
+# Why NOT a nameserver (see ../machine-network.yaml for the full reasoning):
+# Pi-hole (192.168.1.166) is a POD on this single node, so using it as the
+# node's resolver is a circular dependency — node -> pod-on-node -> needs node
+# DNS. That took the entire LAN's DNS offline on 2026-10-14. k8s-gateway
+# (192.168.1.161) fronts CoreDNS, and CoreDNS forwards `.` to the node's
+# resolv.conf, so that loops too. A hosts entry has no such dependency.
+#
+# `kind: StaticHostConfig` is used deliberately INSTEAD of writing /etc/hosts via
+# `machine.files`. Talos owns /etc/hosts and regenerates it (it holds the
+# auto-populated node hostname entry); a static file would be overwritten or
+# would clobber it. This document is merged into /etc/hosts by Talos instead.
+#
+# 192.168.1.162 is the `envoy-internal` LoadBalancer, where the zot HTTPRoute
+# serves. CAUTION: hardcoded — if that LB IP moves, image pulls break silently
+# until this line is updated.
+#
+# The hostname below is a PLACEHOLDER. It cannot be ${SECRET_DOMAIN}: talhelper
+# renders Talos config before any sops decryption, so that variable is undefined
+# here and genconfig fails ("variable ${SECRET_DOMAIN} not set"). The real
+# hostname must not be committed either — this file is tracked and the repo is
+# PUBLIC. Substitute it into the gitignored generated config at apply time.
+apiVersion: v1alpha1
+kind: StaticHostConfig
+# `name` is the IP address (Talos validates it parses as an IP); the hostnames
+# that map to it go in the `hostnames` list. Not the other way round.
+name: 192.168.1.162
+hostnames:
+  - REGISTRY_PLACEHOLDER

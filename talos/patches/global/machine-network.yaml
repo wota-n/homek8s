@@ -1,6 +1,29 @@
 machine:
   network:
     disableSearchDomain: true
+    # PUBLIC resolvers only — deliberately NOT the LAN's Pi-hole.
+    #
+    # The node must never depend on a service that runs inside the cluster.
+    # Pi-hole (192.168.1.166) is a pod on THIS single node, so naming it here
+    # creates a circular dependency:
+    #     node DNS -> Pi-hole (pod on node) -> needs node DNS -> node has none
+    # That loop is not theoretical. On 2026-10-14 it took the whole LAN's DNS
+    # offline: applying a config that listed Pi-hole first rebooted the node,
+    # Pi-hole could not start without DNS, and every LAN client that delegates
+    # to it (router -> 192.168.1.166) lost name resolution, including Steam.
+    #
+    # The same trap applies to k8s-gateway (192.168.1.161): it answers
+    # cluster.local with the same SOA serial as in-cluster CoreDNS, i.e. it
+    # fronts CoreDNS, and CoreDNS's `.` block does `forward . /etc/resolv.conf`.
+    # Naming it here makes CoreDNS forward to itself.
+    #
+    # Consequence: the node cannot resolve LAN-only names such as
+    # registry.${SECRET_DOMAIN} (they have no public record by design), so a pod
+    # cannot pull an image from the private registry by its real hostname. That
+    # is the accepted trade-off for keeping LAN DNS independent of the cluster.
+    # If registry pulls are needed, prefer a node-level /etc/hosts entry
+    # (machine-files.yaml) mapping the registry to the gateway IP rather than
+    # reintroducing a resolver dependency here.
     nameservers:
       - 1.1.1.1
       - 1.0.0.1

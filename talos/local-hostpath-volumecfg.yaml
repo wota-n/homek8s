@@ -1,0 +1,42 @@
+---
+# Restores the local-path provisioner's backing volume on the Talos node.
+#
+# WHY THIS FILE EXISTS (added 2026-10-14):
+#   `talhelper genconfig` renders talconfig.yaml + talos/patches/** ONLY. The
+#   local-hostpath user volume was originally added to the node by hand and was
+#   never committed, so the first `talosctl apply-config` from a freshly
+#   rendered config SILENTLY DROPPED it. That unmounted /var/mnt/local-hostpath
+#   and took down every PVC-backed pod on this single node (forgejo, zot, hermes,
+#   media stack, pihole, rustdesk, vocard):
+#     MountVolume.SetUp failed ... mkdir /var/mnt/local-hostpath/...:
+#     read-only file system
+#   because the kubelet fell back to the read-only root fs once the hostPath
+#   directory was no longer a mountpoint.
+#
+#   Committing it here means a regenerated config is now SAFE to apply.
+#
+# Schema notes (Talos v1.12 `UserVolumeConfig`):
+#   - No `spec:` and no `metadata:` — `name` and `provisioning` are top level.
+#   - Do NOT use `kind: VolumeConfig`: in v1.12 that kind is reserved for system
+#     volumes and rejects anything but STATE / EPHEMERAL / IMAGECACHE.
+#   - No `volumeType:` and no `filesystem:`. Stating either makes Talos try to
+#     reconcile the whole NVMe and fail with "filesystem type mismatch:
+#     gpt != xfs" (the disk is GPT; xfs is inside the u-local-hostpath
+#     partition). Omitting both adopts the existing partition and preserves the
+#     PVC data already on that disk.
+#   - `minSize`/`maxSize`/`grow` are rejected for this volume
+#     ("min size, max size and grow are not supported").
+#   - The `!system_disk` CEL spelling is gone in v1.12 (the disk-locator env
+#     declares only `disk` and `glob()`), so the selector matches on model. The
+#     model string is the full Disks.spec.model value including the size.
+#
+# Scope: this is the only storage class in the cluster (local-path-provisioner
+# -> /var/mnt/local-hostpath on a 1TB WD Green SN350 NVMe). The install disk
+# (/dev/sda4 on /var) is separate and must never hold app data.
+apiVersion: v1alpha1
+kind: UserVolumeConfig
+name: local-hostpath
+provisioning:
+  diskSelector:
+    match: disk.transport == "nvme" && disk.model == "WD Green SN350 1TB"
+  minSize: 1TB
