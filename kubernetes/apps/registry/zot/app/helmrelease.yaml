@@ -39,6 +39,25 @@ spec:
 
     # config.json carries no secret (only the PATH of the htpasswd file), so it
     # ships in a ConfigMap. mountConfig must stay true for configFiles to be used.
+    # NOTE: this block is strict JSON — zot parses it with a plain JSON parser, so
+    # NOT even # comments. Put notes in the YAML around it, never inside.
+    #
+    # The "extensions" block enables the web GUI (zui). Two gotchas, both measured
+    # against v2.1.22, not read off the docs:
+    #   1. ui REFUSES to start without search — enabling ui alone gives
+    #      "failed to enable ui, search extension must be enabled" and a
+    #      crashloop. The docs' claim that ui pulls its dependencies in
+    #      automatically is wrong. Both keys are required.
+    #   2. enabling the extensions REPLACES the chart's default config, which
+    #      already had search/ui/mgmt on — that is why / 404'd until this was
+    #      added. mountConfig replaces the whole file, it does not merge.
+    # search enables mgmt, and search+ui together enable userprefs (stars and
+    # bookmarks in the GUI). Deliberately no "cve" key: it pulls the Trivy
+    # databases (hundreds of MB) and we do not want CVE scanning here.
+    #
+    # Verify before pushing — this is strict JSON and the pod will not start if
+    # it is malformed:
+    #   zot verify <config.json>   (binary is /usr/local/bin/zot-linux-amd64)
     mountConfig: true
     configFiles:
       config.json: |-
@@ -63,6 +82,7 @@ spec:
           },
           "log": { "level": "info" },
           "extensions": {
+            "search": { "enable": true },
             "ui": { "enable": true }
           }
         }
