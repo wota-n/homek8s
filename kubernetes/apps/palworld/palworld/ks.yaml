@@ -1,0 +1,25 @@
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: palworld
+spec:
+  interval: 1h
+  path: ./kubernetes/apps/palworld/palworld/app
+  postBuild:
+    substituteFrom:
+      # cluster-secrets is the sops blob copied into every namespace by the sops
+      # component. The second source is ESO-owned: the ExternalSecret in app/
+      # writes Secret 'palworld' from Bitwarden, and that is where
+      # ${PALWORLD_SERVER_PASSWORD} resolves from (same pattern as vocard).
+      - name: cluster-secrets
+        kind: Secret
+      - name: palworld
+        kind: Secret
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  targetNamespace: palworld
+  wait: false

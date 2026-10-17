@@ -1,0 +1,97 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: palworld
+spec:
+  chartRef:
+    kind: HelmChart
+    name: palworld
+  interval: 1h
+  values:
+    server:
+      # The chart's defaults are requests cpu=4 / mem=8Gi and limits cpu=4 /
+      # mem=12Gi. The node is an Intel N100 with 3950m allocatable, so a 4-CPU
+      # request can never schedule. Sized here for a handful of players; raise
+      # the memory limit if the pod OOMs (Palworld servers leak over long uptime).
+      resources:
+        requests:
+          cpu: 500m
+          memory: 2Gi
+        limits:
+          cpu: 3
+          memory: 8Gi
+
+      image:
+        repository: thijsvanloef/palworld-server-docker
+        tag: v2.7.1
+        imagePullPolicy: IfNotPresent
+
+      # local-path is the only StorageClass and enforces no quota, so size is a
+      # label. preventDelete adds helm.sh/resource-policy: keep, so a Helm
+      # uninstall (Flux prune) cannot delete the world — ReclaimPolicy is Delete.
+      storage:
+        main:
+          size: 20Gi
+          storageClassName: local-path
+          preventDelete: true
+
+      # Game traffic is raw UDP, NOT HTTP, so it cannot ride envoy-internal /
+      # envoy-external (HTTP-layer gateways). A LoadBalancer Service gets a Cilium
+      # L2 VIP on the LAN, pinned to .167 so the router's port-forward target is
+      # stable. RCON (25575/TCP) is deliberately left OFF this Service.
+      #
+      # Deliberately no envoy/Cloudflare exposure: game traffic is not HTTP and
+      # is outside the Cloudflare Tunnel terms; friends join by public IP:8211.
+      service:
+        type: LoadBalancer
+        annotations:
+          lbipam.cilium.io/ips: "192.168.1.167"
+        ports:
+          - name: game
+            port: 8211
+            protocol: UDP
+            targetPort: 8211
+          - name: query
+            port: 27015
+            protocol: UDP
+            targetPort: 27015
+
+      config:
+        # The chart's own `storage.main.preventDelete` is BROKEN in 2.7.1: it
+        # writes `helm.sh/resource-policy: keep` into the PVC's *labels*
+        # (templates/pvcs.yaml), where Helm does not read it. Verified in the
+        # render. server.config.annotations IS applied to the PVC's annotations,
+        # so the keep policy is set here instead — without it, a Helm uninstall
+        # (Flux prune, or deleting this app dir) deletes the PVC, local-path's
+        # ReclaimPolicy is Delete, and the world save is destroyed.
+        annotations:
+          helm.sh/resource-policy: keep
+        server_name: "homek8s-palworld"
+        server_description: "homek8s"
+        max_players: 8
+        multithreading: true
+        timezone: "UTC"
+        update_on_boot: true
+
+        # RCON stays on for the image's own backup/restart tooling. The chart
+        # generates a random password Secret for it; it is never published
+        # because rcon is not in service.ports above.
+        rcon:
+          enable: true
+
+        # Community mode stays OFF: it would register the server on Palworld's
+        # PUBLIC server browser (the image then adds -publiclobby). We want
+        # direct-IP joins only, so the server is never publicly discoverable.
+        community:
+          enable: false
+
+        env:
+          DISABLE_GENERATE_SETTINGS: "false"
+          # The chart only wires SERVER_PASSWORD to the pod when community.enable
+          # is true (verified in templates/deployments.yaml), but the image reads
+          # the env var regardless of COMMUNITY — its own README pairs
+          # COMMUNITY=false with SERVER_PASSWORD. So the join password is injected
+          # here, resolved from the `palworld` Secret by Flux postBuild.
+          SERVER_PASSWORD: "${PALWORLD_SERVER_PASSWORD}"

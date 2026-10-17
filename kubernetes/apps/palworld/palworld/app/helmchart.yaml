@@ -1,0 +1,15 @@
+---
+# Chart pinned to 2.7.1; appVersion v2.7.1 is also the image tag (thijsvanloef/
+# palworld-server-docker:v2.7.1), so bump the chart and the image tag together.
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/source.toolkit.fluxcd.io/helmchart_v1.json
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmChart
+metadata:
+  name: palworld
+spec:
+  interval: 1h
+  chart: palworld
+  version: 2.7.1
+  sourceRef:
+    kind: HelmRepository
+    name: palworld

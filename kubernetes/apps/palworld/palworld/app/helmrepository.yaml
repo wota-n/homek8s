@@ -1,0 +1,13 @@
+---
+# The official Palworld chart is NOT published as an OCI artifact — its chart
+# index lives on GitHub Pages (twinki14.github.io/palworld-server-chart), so this
+# is a HelmRepository + HelmChart source, like zot/pihole/tailscale. Do not
+# "fix" this to OCIRepository; the project ships no ghcr.io chart.
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/source.toolkit.fluxcd.io/helmrepository_v1.json
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: palworld
+spec:
+  interval: 1h
+  url: https://twinki14.github.io/palworld-server-chart
