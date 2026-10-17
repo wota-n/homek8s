@@ -61,7 +61,10 @@ spec:
               "htpasswd": { "path": "/secret/htpasswd" }
             }
           },
-          "log": { "level": "info" }
+          "log": { "level": "info" },
+          "extensions": {
+            "ui": { "enable": true }
+          }
         }
 
     # htpasswd file = the credential. It is NEVER a chart value (that would put it
