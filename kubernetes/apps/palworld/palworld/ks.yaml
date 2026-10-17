@@ -11,11 +11,18 @@ spec:
       # cluster-secrets is the sops blob copied into every namespace by the sops
       # component. The second source is ESO-owned: the ExternalSecret in app/
       # writes Secret 'palworld' from Bitwarden, and that is where
-      # ${PALWORLD_SERVER_PASSWORD} resolves from (same pattern as vocard).
+      # ${PALWORLD_SERVER_PASSWORD} resolves from.
+      #
+      # `optional: true` is REQUIRED, not cosmetic. With a required (default)
+      # source, a missing Secret fails the whole build -> the ExternalSecret is
+      # never applied -> ESO never creates the Secret -> permanent deadlock on a
+      # fresh namespace. optional lets the manifests apply first, and the next
+      # reconcile substitutes the real value once ESO has synced.
       - name: cluster-secrets
         kind: Secret
       - name: palworld
         kind: Secret
+        optional: true
   prune: true
   sourceRef:
     kind: GitRepository
