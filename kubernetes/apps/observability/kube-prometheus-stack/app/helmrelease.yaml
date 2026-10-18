@@ -70,6 +70,21 @@ spec:
           enabled: true
         patch:
           enabled: false
+        # FIRST-INSTALL RACE, observed on this cluster 2026-10-18:
+        #   failed calling webhook "prometheusrulemutate.monitoring.coreos.com":
+        #   no endpoints available for service kube-prometheus-stack-operator
+        # The chart creates its ~30 PrometheusRules in the SAME Helm pass that
+        # creates the operator, so the API server calls the webhook before any
+        # operator pod is Ready to answer it. The default is `Fail`, which
+        # rejects every rule and fails the whole upgrade -- and it fails late
+        # enough to leave a release holding ZERO PrometheusRules plus two failed
+        # release records, i.e. a functional-looking stack with no alert rules.
+        #
+        # IgnoreOnInstallOnly is the chart's own documented remedy: on install it
+        # renders `Ignore`, so an unready webhook cannot fail the install; on
+        # upgrade it stays `Fail`, so validation is still enforced at the time it
+        # can actually be served.
+        failurePolicy: IgnoreOnInstallOnly
 
     # ---------------------------------------------------------------------
     # Talos control plane -- THE reason this cluster needs custom values
