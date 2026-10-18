@@ -20,9 +20,12 @@ spec:
     name: kube-prometheus-stack
   interval: 1h
   values:
-    # Operator-generated objects get short, stable names: Prometheus is
-    # `prometheus`, Alertmanager is `alertmanager`. Also makes the Grafana
-    # dashboards that reference them line up.
+    # Drops the `-prometheus` / `-alertmanager` suffix from the operator's own
+    # CR names, so both are named after the release: `kube-prometheus-stack`
+    # (different kinds, so sharing a name is fine). Verified in
+    # templates/_helpers.tpl -- the flag is reached only by
+    # .prometheus.crname / .alertmanager.crname / .thanosRuler.crname, so it
+    # does NOT produce bare `prometheus`/`alertmanager` names.
     cleanPrometheusOperatorObjectNames: true
 
     # ---------------------------------------------------------------------
