@@ -1,0 +1,23 @@
+---
+# Pinned. The chart's Grafana dashboards and Prometheus rules are ConfigMaps
+# rendered from THIS artifact, so the tag is what decides what the cluster's
+# dashboards say.
+#
+# NOTE: the Prometheus Operator CRDs do NOT come from this chart. They live in
+# the chart's `crds` SUBchart (charts/crds/crds/*.yaml), and Helm does not
+# install CRDs from subchart crds/ directories -- there is no top-level crds/
+# dir here either. They come from bootstrap/helmfile.d/00-crds.yaml, which runs
+# `helm template --include-crds` and keeps only the CustomResourceDefinitions.
+# Keep the version pinned in that file in step with this tag.
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: kube-prometheus-stack
+spec:
+  interval: 15m
+  layerSelector:
+    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+    operation: copy
+  ref:
+    tag: 92.10.1
+  url: oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack

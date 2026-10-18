@@ -1,0 +1,33 @@
+---
+# Metrics stack for the cluster.
+#
+# WHY kube-prometheus-stack and not VictoriaMetrics: this chart's Grafana
+# dashboards and alert rules are ConfigMaps rendered from the PINNED chart, so
+# the cluster's dashboards are a function of a commit. The VM equivalent
+# (victoria-metrics-k8s-stack) reaches out to raw.githubusercontent.com
+# main/master branches at deploy time via a post-install/post-upgrade hook Job
+# and writes the dashboards into the cluster from there -- state that no commit
+# describes and that drifts on someone else's schedule. See the HelmRelease for
+# the rest of the reasoning.
+#
+# `wait: false` matches the other apps here: the release legitimately takes a
+# while (operator -> CRDs -> Prometheus -> its PVC), and a Kustomization waiting
+# on it would just sit in ProgressingWithRetry.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: kube-prometheus-stack
+spec:
+  interval: 1h
+  path: ./kubernetes/apps/observability/kube-prometheus-stack/app
+  postBuild:
+    substituteFrom:
+      - name: cluster-secrets
+        kind: Secret
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  targetNamespace: observability
+  wait: false

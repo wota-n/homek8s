@@ -1,0 +1,33 @@
+---
+# Grafana on the LAN via envoy-internal, same shape as the media apps.
+#
+# Deliberately NOT envoy-external: Grafana is an authenticated admin UI, so it
+# stays off the public internet. It is also not on the tailnet yet -- add a
+# Tailscale Ingress if it is ever needed away from home (see the jellyfin app
+# for the pattern, and its comments for the certificate-domain trap: the cert
+# domain is derived from the ProxyGroup plus the annotated Service name, so it
+# must be `<namespace>-<service>`).
+#
+# `${SECRET_DOMAIN}` resolves because this app's ks.yaml sets
+# postBuild.substituteFrom: cluster-secrets.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: grafana
+spec:
+  hostnames:
+    - "grafana.${SECRET_DOMAIN}"
+  parentRefs:
+    - name: envoy-internal
+      namespace: network
+      sectionName: https
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        # The grafana subchart's Service, port 80 -> container 3000. The name is
+        # stable because the HelmRelease pins grafana.fullnameOverride: grafana.
+        - name: grafana
+          port: 80

@@ -1,0 +1,270 @@
+---
+# kube-prometheus-stack -- metrics for the whole cluster.
+#
+# Most of what is below is NOT tuning; it is this cluster's measured reality.
+# Values marked MEASURED were probed on node homek8s on 2026-10-18 and are
+# worthless on a non-Talos cluster (or a k3s one), so do not copy them blindly.
+#
+# The ServiceMonitors this scrapes are already live and were NOT created here:
+# 11 ServiceMonitors + 2 PodMonitors ship from the apps' own charts
+# (cert-manager, cilium, metrics-server, external-secrets, envoy-gateway,
+# cloudflare-dns, cloudflare-tunnel, flux-operator, reloader). They have been
+# applying against the CRDs since Nov 2025 with no Prometheus to read them.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kube-prometheus-stack
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: kube-prometheus-stack
+  interval: 1h
+  values:
+    # Operator-generated objects get short, stable names: Prometheus is
+    # `prometheus`, Alertmanager is `alertmanager`. Also makes the Grafana
+    # dashboards that reference them line up.
+    cleanPrometheusOperatorObjectNames: true
+
+    # ---------------------------------------------------------------------
+    # CRDs
+    # ---------------------------------------------------------------------
+    # The CRDs are NOT installed by this chart: kube-prometheus-stack keeps them
+    # in its `crds` SUBchart (charts/crds/crds/*.yaml) and Helm does not install
+    # CRDs from subchart crds/ directories. There is no top-level crds/ dir
+    # either, so `crds: CreateReplace` on cluster-apps (which applies the top
+    # level crds/ dir) is a no-op for this chart.
+    #
+    # Two things are therefore both required, and they do different jobs:
+    #
+    #   1. bootstrap/helmfile.d/00-crds.yaml -- gets the CRDs in place BEFORE any
+    #      app chart renders a ServiceMonitor. That is a chicken-and-egg problem
+    #      at first bootstrap, and the bootstrap step is what solves it.
+    #   2. the job below -- keeps the CRDs in step with the OPERATOR after that.
+    #      Otherwise a chart bump leaves a newer operator running against an
+    #      older API, which fails in ways that look like anything but a CRD
+    #      problem.
+    #
+    # upgradeJob is a preview feature and off by default. forceConflicts is
+    # required here: our CRDs were applied by `kubectl` (the bootstrap helmfile),
+    # so the job has to take ownership to move them.
+    crds:
+      upgradeJob:
+        enabled: true
+        forceConflicts: true
+
+    # ---------------------------------------------------------------------
+    # Operator admission webhooks -- issued by cert-manager
+    # ---------------------------------------------------------------------
+    # cert-manager is already on this cluster, so use it instead of the chart's
+    # self-signed create/patch hook Jobs. Verified against the chart's own
+    # gating, not assumed: templates/prometheus-operator/job-patch/* are gated on
+    # admissionWebhooks.patch.enabled, and templates/prometheus-operator/
+    # certmanager.yaml on admissionWebhooks.certManager.enabled.
+    #
+    # With no issuerRef, certmanager.yaml creates its own chain (self-signed
+    # Issuer -> CA Certificate -> CA Issuer -> serving Certificate), so nothing
+    # has to be pre-provisioned for this.
+    prometheusOperator:
+      admissionWebhooks:
+        certManager:
+          enabled: true
+        patch:
+          enabled: false
+
+    # ---------------------------------------------------------------------
+    # Talos control plane -- THE reason this cluster needs custom values
+    # ---------------------------------------------------------------------
+    # Probed from the POD network (not just loopback), because Prometheus scrapes
+    # the node IP and that distinction is the whole question:
+    #   :10249 kube-proxy          -> connection refused, no listener
+    #   :2381  etcd                -> 200 over plain HTTP
+    #   :10257 kube-controller-mgr -> 403 without a token (endpoint live)
+    #   :10259 kube-scheduler      -> 403 without a token (endpoint live)
+    #   :10250 kubelet             -> 401 without a token (endpoint live)
+    #
+    # Without the endpoints below, four default targets are permanently down:
+    # Talos runs the control plane as static pods with no Services in kube-system
+    # for the operator to discover.
+
+    # MEASURED: Cilium replaces kube-proxy here, so there is no :10249 to scrape
+    # and no kube-proxy pods to label. Leaving this enabled yields a target that
+    # can never come up.
+    kubeProxy:
+      enabled: false
+
+    # MEASURED: Talos serves etcd metrics on the node's :2381 over plain HTTP.
+    # The chart's defaults already match on protocol and port (scheme: http,
+    # port: 2381) -- what is missing is a Service, because Talos etcd is not a
+    # pod, hence `endpoints`.
+    kubeEtcd:
+      endpoints:
+        - 192.168.1.150
+
+    kubeControllerManager:
+      endpoints:
+        - 192.168.1.150
+      serviceMonitor:
+        # Chart default is null (it guesses from the Kubernetes version); pin it.
+        https: true
+        # Talos's serving cert is not in the Prometheus trust store.
+        #
+        # NOTE: the `insecureSkipVerify` key that sits beside `https` in this
+        # chart's values.yaml is DEAD for this monitor and for the scheduler's --
+        # nothing in templates/ reads `serviceMonitor.insecureSkipVerify`, and
+        # the rendered endpoint came out without it. Endpoint TLS is rendered via
+        # `tlsConfig`, so that is what actually disables verification.
+        tlsConfig:
+          insecureSkipVerify: true
+
+    kubeScheduler:
+      endpoints:
+        - 192.168.1.150
+      serviceMonitor:
+        https: true
+        # Same dead-key trap as the controller-manager above: endpoint TLS is
+        # only rendered from `tlsConfig`.
+        tlsConfig:
+          insecureSkipVerify: true
+
+    # kubelet needs no override: the chart already defaults
+    # kubelet.serviceMonitor.insecureSkipVerify to true and https to true.
+
+    # ---------------------------------------------------------------------
+    # Prometheus
+    # ---------------------------------------------------------------------
+    prometheus:
+      prometheusSpec:
+        # Adopt EVERY ServiceMonitor/PodMonitor/PrometheusRule/Probe in the
+        # cluster, not only ones carrying this release's labels.
+        #
+        # This is not a style choice, and the obvious spelling does NOT work.
+        # The chart emits a selector only when the value is a NON-EMPTY map
+        # (`{{- if ...serviceMonitorSelector }}`, and an empty map is falsy in Go
+        # templates), so `serviceMonitorSelector: {}` renders NOTHING and leaves
+        # the field nil. To the operator, nil means "match nothing" -- it is the
+        # `NilUsesHelmValues` flag that makes nil mean `release=<name>`, and that
+        # flag defaults to true.
+        #
+        # So `serviceMonitorSelectorNilUsesHelmValues: false` on its own would
+        # select NOTHING and the cluster would look empty. `matchLabels: {}` is a
+        # non-empty map (truthy), renders, and means "everything" to
+        # LabelSelectorAsSelector.
+        #
+        # Confirmed against the 13 monitors already live here: they share NO
+        # common label -- cert-manager carries prometheus=default, reloader
+        # carries release=reloader, envoy-proxy carries neither -- so a
+        # release-label selector would match none of them.
+        serviceMonitorSelector:
+          matchLabels: {}
+        podMonitorSelector:
+          matchLabels: {}
+        probeSelector:
+          matchLabels: {}
+        ruleSelector:
+          matchLabels: {}
+        scrapeConfigSelector:
+          matchLabels: {}
+        # Belt and braces: if one of the selectors above were ever dropped, this
+        # stops the operator from silently substituting release=<name> for nil.
+        serviceMonitorSelectorNilUsesHelmValues: false
+        podMonitorSelectorNilUsesHelmValues: false
+        probeSelectorNilUsesHelmValues: false
+        ruleSelectorNilUsesHelmValues: false
+        scrapeConfigSelectorNilUsesHelmValues: false
+
+        # A PVC size on local-path is a LABEL, not a quota -- the provisioner
+        # enforces nothing, so a runaway series count would happily fill the
+        # NVMe. retentionSize is the only real guardrail; retention is the
+        # companion so both bounds are stated.
+        retention: 15d
+        retentionSize: 25GB
+        storageSpec:
+          volumeClaimTemplate:
+            spec:
+              storageClassName: local-path
+              accessModes: ["ReadWriteOnce"]
+              resources:
+                requests:
+                  storage: 30Gi
+
+        # Sized for a 4 vCPU node that shares itself with game servers. The
+        # request is deliberately small so the scheduler never fights Palworld
+        # for capacity; the limit is the real ceiling.
+        resources:
+          requests:
+            cpu: 100m
+            memory: 400Mi
+          limits:
+            memory: 1500Mi
+
+    # ---------------------------------------------------------------------
+    # Alertmanager
+    # ---------------------------------------------------------------------
+    # No receiver is configured yet: alerts evaluate and are visible in the
+    # Alertmanager UI, but nothing is delivered anywhere. Hook a receiver up
+    # when there is somewhere to send them (the Flux notification-controller is
+    # already running; the Signal bot is still only a plan).
+    alertmanager:
+      alertmanagerSpec:
+        resources:
+          requests:
+            cpu: 10m
+            memory: 64Mi
+          limits:
+            memory: 200Mi
+        storage:
+          volumeClaimTemplate:
+            spec:
+              storageClassName: local-path
+              accessModes: ["ReadWriteOnce"]
+              resources:
+                requests:
+                  storage: 2Gi
+
+    # ---------------------------------------------------------------------
+    # Grafana
+    # ---------------------------------------------------------------------
+    grafana:
+      # Stable Service name so the HTTPRoute can reference something obvious.
+      fullnameOverride: grafana
+      # From Bitwarden via External Secrets. Never let the chart generate this:
+      # the subchart uses Helm `lookup` to preserve a generated password, and
+      # helm-controller does not support `lookup`, so it would churn on every
+      # upgrade and lock you out.
+      admin:
+        existingSecret: grafana-admin
+      persistence:
+        enabled: true
+        type: pvc
+        storageClassName: local-path
+        accessModes: ["ReadWriteOnce"]
+        size: 5Gi
+      resources:
+        requests:
+          cpu: 20m
+          memory: 128Mi
+        limits:
+          memory: 400Mi
+      # Grafana is an authenticated admin UI. Reach it on the LAN through the
+      # HTTPRoute in httproute.yaml -- no public ingress, no Cloudflare Tunnel.
+      ingress:
+        enabled: false
+
+    # ---------------------------------------------------------------------
+    # Exporters (both cheap, and their ServiceMonitors are what make the
+    # bundled dashboards actually show anything)
+    # ---------------------------------------------------------------------
+    kube-state-metrics:
+      resources:
+        requests:
+          cpu: 10m
+          memory: 64Mi
+        limits:
+          memory: 200Mi
+    prometheus-node-exporter:
+      resources:
+        requests:
+          cpu: 10m
+          memory: 32Mi
+        limits:
+          memory: 128Mi

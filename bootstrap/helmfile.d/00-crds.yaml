@@ -23,7 +23,19 @@ releases:
     chart: oci://mirror.gcr.io/envoyproxy/gateway-helm
     version: v1.6.0
 
+  # CRDs ONLY (see the postRenderer below). These are the ServiceMonitor /
+  # PodMonitor / PrometheusRule CRDs that every app chart renders against, so
+  # they must exist before any app is reconciled.
+  #
+  # This file is the ONLY place the Prometheus Operator CRDs come from:
+  # kube-prometheus-stack keeps them in its `crds` SUBchart, and Helm does not
+  # install CRDs from subchart crds/ directories. Cluster-apps sets
+  # `crds: CreateReplace`, but that applies the chart's top-level crds/ dir,
+  # which does not exist -- so nothing upgrades these except re-running this
+  # helmfile step. Keep this version in step with the OCIRepository tag in
+  # kubernetes/apps/observability/kube-prometheus-stack/app/ocirepository.yaml,
+  # or the operator runs ahead of its own API.
   - name: kube-prometheus-stack
     namespace: observability
     chart: oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack
-    version: 79.5.0
+    version: 92.10.1
