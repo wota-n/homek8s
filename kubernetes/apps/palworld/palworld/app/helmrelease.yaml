@@ -95,3 +95,27 @@ spec:
           # COMMUNITY=false with SERVER_PASSWORD. So the join password is injected
           # here, resolved from the `palworld` Secret by Flux postBuild.
           SERVER_PASSWORD: "${PALWORLD_SERVER_PASSWORD}"
+
+          # --- matched to the co-op world this server was migrated from ---
+          # WorldOption.sav from the co-op world was decoded and all 119 of its
+          # settings diffed against the server's generated PalWorldSettings.ini.
+          # That world ran Difficulty=Custom but had every rate left at the
+          # default, so NO rate changes are needed — these four are the only real
+          # gameplay differences:
+          #   BaseCampMaxNumInGuild     10 vs 4        more bases per guild
+          #   bActiveUNKO               True vs False  keep the UNKO feature on
+          #   bAllowGlobalPalboxImport  True vs False  keep global-palbox import on
+          #   bEnableNonLoginPenalty    False vs True  don't punish idle players
+          #
+          # Deliberately NOT copied:
+          #   bAutoResetGuildNoOnlinePlayers was True in co-op. That is inert in a
+          #   co-op world (it only ticks while someone is hosting), but on a 24/7
+          #   server it deletes the guild once AutoResetGuildTimeNoOnlinePlayers
+          #   (72h) passes with nobody online, so it stays False (image default).
+          #   ServerPlayerMaxNum stays at the chart's max_players: 8 (co-op's 32
+          #   was just the menu default) and the server keeps its own name,
+          #   description, passwords and RCON/REST API settings.
+          BASE_CAMP_MAX_NUM_IN_GUILD: "10"
+          ACTIVE_UNKO: "True"
+          ALLOW_GLOBAL_PALBOX_IMPORT: "True"
+          ENABLE_NON_LOGIN_PENALTY: "False"
