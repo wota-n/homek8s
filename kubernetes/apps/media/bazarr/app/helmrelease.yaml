@@ -1,0 +1,69 @@
+---
+# Bazarr — subtitle companion for Sonarr/Radarr.
+#
+# Sonarr cannot fetch subtitles at all: it only grabs *video* releases, so an
+# episode is watchable-with-subs only if the release itself carries subtitle
+# streams. Bazarr watches Sonarr's/Radarr's libraries and backfills the missing
+# ones, which removes the per-episode manual re-grab dance.
+#
+# NO ExternalSecret here, deliberately. Unlike the *arrs, Bazarr has no env-var
+# config surface — its settings live in /config/config/config.yaml (written by
+# its own UI) and it reads only PUID/PGID/UMASK/TZ from the environment. An
+# ExternalSecret feeding SUBTITLE provider API keys would write a Secret that
+# nothing ever reads, which looks green while changing nothing. Provider keys and
+# the Sonarr/Radarr API keys are therefore entered through Bazarr's own UI.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: bazarr
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: bazarr
+  interval: 1h
+  values:
+    controllers:
+      bazarr:
+        strategy: Recreate
+        containers:
+          app:
+            image:
+              repository: docker.io/linuxserver/bazarr
+              tag: 1.6.2
+            env:
+              PUID: "1000"
+              PGID: "1000"
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        # Same fsGroup as the rest of the stack so Bazarr can write .srt files
+        # next to the episodes inside the shared claim.
+        fsGroup: 1000
+    service:
+      app:
+        ports:
+          http:
+            port: 6767
+    # Admin UI: ClusterIP only, same as the *arrs. Reach it with a port-forward
+    # during setup; do not publish it on the LAN or publicly.
+    ingress:
+      main:
+        enabled: false
+    persistence:
+      config:
+        enabled: true
+        type: persistentVolumeClaim
+        storageClass: local-path
+        accessMode: ReadWriteOnce
+        size: 1Gi
+      # The shared library, mounted at the SAME paths Sonarr and Radarr use
+      # (/data/media/tv, /data/media/movies). Identical paths are what let Bazarr
+      # write subtitles straight into the library with no path mapping.
+      media:
+        enabled: true
+        type: persistentVolumeClaim
+        existingClaim: media-data
+        globalMounts:
+          - path: /data
