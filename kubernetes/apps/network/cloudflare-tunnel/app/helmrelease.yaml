@@ -7,6 +7,8 @@ spec:
   chartRef:
     kind: OCIRepository
     name: cloudflare-tunnel
+  driftDetection:
+    mode: enabled
   interval: 1h
   values:
     controllers:
